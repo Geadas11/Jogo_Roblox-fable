@@ -18,6 +18,7 @@ local Net = require(script.Parent.Net)
 -- Boot order. A new controller must be added here or it will not run.
 local CONTROLLER_ORDER = {
 	"CameraController",
+	"HudController",
 }
 
 local log = Log.new("Main")

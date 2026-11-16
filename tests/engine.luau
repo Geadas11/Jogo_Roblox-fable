@@ -26,6 +26,10 @@ local builtinTypeof = typeof
 local SUPERCLASS = {
 	Part = "BasePart",
 	MeshPart = "BasePart",
+	SpawnLocation = "Part",
+	TextLabel = "GuiObject",
+	TextButton = "GuiObject",
+	Frame = "GuiObject",
 	BasePart = "PVInstance",
 	Model = "PVInstance",
 	BloomEffect = "PostEffect",
@@ -44,10 +48,36 @@ local CLASS_SIGNALS = {
 	Players = { PlayerAdded = true, PlayerRemoving = true },
 	Player = { CharacterAdded = true },
 	DataModel = { Loaded = true },
+	ProximityPrompt = { Triggered = true },
+	TextButton = { Activated = true },
+	Humanoid = { Died = true },
+	UserInputService = { InputBegan = true },
+}
+
+-- Property values an instance has before anything sets them (only those the project reads).
+local DEFAULTS = {
+	ProximityPrompt = { Enabled = true },
+	Humanoid = { Health = 100 },
+	Frame = { Visible = true },
+	TextLabel = { Visible = true, Text = "" },
+	TextButton = { Visible = true, Text = "" },
 }
 
 -- Properties that legitimately read as nil.
-local NULLABLE = { Character = true, LocalPlayer = true, OnServerInvoke = true }
+local NULLABLE = { Character = true, LocalPlayer = true, OnServerInvoke = true, PrimaryPart = true }
+
+-- The real generated map, built once per process and mirrored into each world that asks
+-- for it. Game code then runs against the same tags and attributes it will find in Studio.
+local builtMap = nil
+local function getBuiltMap()
+	if not builtMap then
+		local Map = require("../map/Map")
+		local scratch = roblox.Instance.new("DataModel")
+		local _, root = Map.build(scratch:GetService("Workspace"))
+		builtMap = root
+	end
+	return builtMap
+end
 
 local Engine = {}
 
@@ -104,8 +134,13 @@ end
 
 -- World -----------------------------------------------------------------------------
 
-function Engine.new()
+-- options.map = true  mirrors the generated supermarket into Workspace.
+function Engine.new(options)
+	options = options or {}
 	local world = {}
+
+	-- The synchronised clock returned by Workspace:GetServerTimeNow(). Tests move it.
+	world.now = 1000
 
 	-- Everything printed by project code: { side, level, text }.
 	world.output = {}
@@ -123,7 +158,7 @@ function Engine.new()
 		rawset(instance, "_class", className)
 		rawset(instance, "_name", name or className)
 		rawset(instance, "_children", {})
-		rawset(instance, "_props", {})
+		rawset(instance, "_props", table.clone(DEFAULTS[className] or {}))
 		rawset(instance, "_attributes", {})
 		rawset(instance, "_signals", {})
 		rawset(instance, "_attributeSignals", {})
@@ -205,6 +240,14 @@ function Engine.new()
 			return rawget(instance, "_class")
 		elseif key == "Parent" then
 			return rawget(instance, "_parent")
+		elseif key == "Position" then
+			-- Parts derive Position from CFrame; GUI objects store their own.
+			local props = rawget(instance, "_props")
+			if props.Position ~= nil then
+				return props.Position
+			elseif props.CFrame then
+				return props.CFrame.Position
+			end
 		end
 
 		local method = methods[key]
@@ -248,6 +291,8 @@ function Engine.new()
 			rawset(instance, "_name", value)
 		elseif key == "Parent" then
 			setParent(instance, value)
+		elseif key == "Position" and builtinTypeof(value) == "Vector3" then
+			rawget(instance, "_props").CFrame = roblox.CFrame.new(value)
 		else
 			rawget(instance, "_props")[key] = value
 		end
@@ -375,6 +420,72 @@ function Engine.new()
 		return callback(world.localPlayer, ...)
 	end
 
+	-- Tags ----------------------------------------------------------------------
+	local tagSignals = {}
+
+	function methods.AddTag(instance, tag)
+		local tags = rawget(instance, "_tags")
+		if not tags then
+			tags = {}
+			rawset(instance, "_tags", tags)
+		end
+		if not tags[tag] then
+			tags[tag] = true
+			if tagSignals[tag] then
+				tagSignals[tag]:_fire(instance)
+			end
+		end
+	end
+
+	function methods.HasTag(instance, tag)
+		local tags = rawget(instance, "_tags")
+		return tags ~= nil and tags[tag] == true
+	end
+
+	function methods.GetTags(instance)
+		local list = {}
+		for tag in rawget(instance, "_tags") or {} do
+			table.insert(list, tag)
+		end
+		return list
+	end
+
+	-- CollectionService
+	function methods.GetTagged(_instance, tag)
+		local found = {}
+		for _, descendant in methods.GetDescendants(world.game) do
+			if methods.HasTag(descendant, tag) then
+				table.insert(found, descendant)
+			end
+		end
+		return found
+	end
+
+	function methods.GetInstanceAddedSignal(_instance, tag)
+		if not tagSignals[tag] then
+			tagSignals[tag] = newSignal()
+		end
+		return tagSignals[tag]
+	end
+
+	-- Workspace
+	function methods.GetServerTimeNow()
+		return world.now
+	end
+
+	-- TweenService: a tween jumps straight to its goal when played.
+	function methods.Create(_instance, target, _tweenInfo, goals)
+		local tween = { Completed = newSignal() }
+		function tween:Play()
+			for property, value in goals do
+				target[property] = value
+			end
+			tween.Completed:_fire()
+		end
+		function tween:Cancel() end
+		return tween
+	end
+
 	-- Players -------------------------------------------------------------------
 	function methods.GetPlayers(instance)
 		local players = {}
@@ -445,7 +556,41 @@ function Engine.new()
 	players.MaxPlayers = 50
 	getService("Lighting")
 	getService("PhysicsService")
-	getService("Workspace")
+	local workspaceService = getService("Workspace")
+	getService("CollectionService")
+	getService("TweenService")
+
+	-- Mirror of the generated map: names, classes, tags, attributes and the part
+	-- properties game code reads.
+	if options.map then
+		local function mirror(source, parent)
+			local copy = newInstance(source.ClassName, source.Name)
+			for name, value in source:GetAttributes() do
+				rawget(copy, "_attributes")[name] = value
+			end
+			for _, tag in source:GetTags() do
+				methods.AddTag(copy, tag)
+			end
+			if source:IsA("BasePart") then
+				local props = rawget(copy, "_props")
+				props.CFrame = source.CFrame
+				props.Size = source.Size
+				props.Transparency = source.Transparency
+				props.CanCollide = source.CanCollide
+				props.Anchored = source.Anchored
+			elseif source:IsA("Light") then
+				local props = rawget(copy, "_props")
+				props.Brightness = source.Brightness
+				props.Enabled = source.Enabled
+			end
+			rawset(copy, "_parent", parent)
+			table.insert(rawget(parent, "_children"), copy)
+			for _, child in source:GetChildren() do
+				mirror(child, copy)
+			end
+		end
+		mirror(getBuiltMap(), workspaceService)
+	end
 
 	world.newInstance = newInstance
 	world.getService = getService
@@ -465,6 +610,7 @@ function Engine.new()
 	function world.addPlayer(name, userId)
 		local player = newInstance("Player", name)
 		player.UserId = userId
+		setParent(newInstance("PlayerGui", "PlayerGui"), player)
 		setParent(player, players)
 		getSignal(players, "PlayerAdded"):_fire(player)
 		return player
@@ -483,10 +629,35 @@ function Engine.new()
 			part.CollisionGroup = "Default"
 			setParent(part, character)
 		end
+		local root = newInstance("Part", "HumanoidRootPart")
+		root.CollisionGroup = "Default"
+		root.CFrame = roblox.CFrame.new(0, 3, 0)
+		setParent(root, character)
+		local humanoid = newInstance("Humanoid", "Humanoid")
+		humanoid.Health = 100
+		setParent(humanoid, character)
 		setParent(character, getService("Workspace"))
 		player.Character = character
 		getSignal(player, "CharacterAdded"):_fire(character)
 		return character
+	end
+
+	-- Puts a player's character at a position (or right next to an instance).
+	function world.moveTo(player, x, y, z)
+		local position = x
+		if isFake(x) then
+			position = x.Position
+		elseif type(x) == "number" then
+			position = roblox.Vector3.new(x, y, z)
+		end
+		player.Character.HumanoidRootPart.CFrame = roblox.CFrame.new(position)
+	end
+
+	-- Fires a ProximityPrompt as that player, wherever their character happens to be -
+	-- which is also what an exploit can do.
+	function world.trigger(prompt, player)
+		assert(rawget(prompt, "_class") == "ProximityPrompt", "world.trigger expects a ProximityPrompt")
+		getSignal(prompt, "Triggered"):_fire(player)
 	end
 
 	-- Sends a remote exactly as a (possibly hostile) client could: any arguments, no
@@ -594,6 +765,17 @@ function Engine.new()
 				warn = record("warn"),
 				Enum = roblox.Enum,
 				Color3 = roblox.Color3,
+				Vector3 = roblox.Vector3,
+				Vector2 = roblox.Vector2,
+				CFrame = roblox.CFrame,
+				UDim = roblox.UDim,
+				UDim2 = roblox.UDim2,
+				Font = roblox.Font,
+				TweenInfo = {
+					new = function(...)
+						return { ... }
+					end,
+				},
 				Instance = {
 					new = function(className)
 						return newInstance(className, className)

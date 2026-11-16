@@ -35,6 +35,8 @@ local PlayerManager = {}
 
 -- Fired once per player, when their client has finished loading.
 PlayerManager.PlayerReady = Signal.new() :: Signal.Signal<Player>
+-- Fired when a player leaves, after their record has been removed.
+PlayerManager.PlayerLeft = Signal.new() :: Signal.Signal<Player>
 
 local records: { [Player]: Record } = {}
 
@@ -74,6 +76,7 @@ local function onPlayerRemoving(player: Player)
 	end
 	records[player] = nil
 	record.Trove:Clean()
+	PlayerManager.PlayerLeft:Fire(player)
 end
 
 local function onClientReady(player: Player)
@@ -103,6 +106,24 @@ end
 function PlayerManager.IsReady(player: Player): boolean
 	local record = records[player]
 	return record ~= nil and record.ClientReady
+end
+
+-- The player's root part while their character is alive, otherwise nil. Every server
+-- check that depends on where a player is goes through this.
+function PlayerManager.GetRoot(player: Player): BasePart?
+	local character = player.Character
+	if not character then
+		return nil
+	end
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid or humanoid.Health <= 0 then
+		return nil
+	end
+	local root = character:FindFirstChild("HumanoidRootPart")
+	if root and root:IsA("BasePart") then
+		return root
+	end
+	return nil
 end
 
 function PlayerManager.GetReadyPlayers(): { Player }

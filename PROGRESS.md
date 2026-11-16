@@ -40,10 +40,21 @@ Verificado fora do Studio com `./scripts/check.sh`: o place é gerado, relido e 
 - [ ] Dressing (meshes, texturas, detalhe ambiental) — depois da jogabilidade base
 
 ## Fase 4 — Jogabilidade base
-- [ ] PlayerManager · GameManager · ShiftManager
-- [ ] InteractionService · transporte de objetos
-- [ ] TaskManager + tarefas
-- [ ] HUD
+Verificado fora do Studio (testes sobre o mapa real em motor simulado). **Falta o teste no Studio.**
+
+Parte A (build 0.4.0) — sessão e interações
+- [x] `InteractionService`: prompts criados só pelo servidor; valida distância, estado do jogador e ritmo
+- [x] `DoorService`: portas abrem e fecham (a saída de emergência fica trancada)
+- [x] `GameManager`: Lobby → Turno → Resultados → Lobby; o turno começa ao picar o ponto
+- [x] `ShiftManager`: relógio das 12 AM às 6 AM, uma hora de cada vez
+- [x] HUD: relógio, estado, notificações, resumo do fim de turno
+- [ ] **Teste no Studio (parte A)**
+
+Parte B — tarefas
+- [ ] Transporte de objetos (uma coisa de cada vez) e largar
+- [ ] `TaskManager` + tarefas: repor prateleiras, limpar derrames, inspecionar frigoríficos
+- [ ] Lista de objetivos no HUD
+- [ ] Mais tipos de tarefa (lixo, carrinhos, entregas, caixas)
 
 ## Fase 5 — Terror
 - [ ] PowerManager · LightingController

@@ -40,6 +40,20 @@ local Definitions: { [string]: Definition } = {
 		args = {},
 		rate = { burst = 2, perSecond = 0.1 },
 	},
+
+	-- A short message for the player's HUD: (text: string, kind: "Info" | "Warning").
+	Notify = {
+		kind = "Event",
+		from = "Server",
+		args = {},
+	},
+
+	-- The shift is over. Carries the results table shown on the results screen.
+	ShiftEnded = {
+		kind = "Event",
+		from = "Server",
+		args = {},
+	},
 }
 
 return table.freeze(Definitions)

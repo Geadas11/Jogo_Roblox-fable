@@ -11,7 +11,7 @@ local CLIENT_MAIN = "StarterPlayer.StarterPlayerScripts.Client.Main"
 local PLAYER_MANAGER = "ServerScriptService.Server.Services.PlayerManager"
 
 local function bootServer()
-	local world = Engine.new()
+	local world = Engine.new({ map = true })
 	local server = world.side("server")
 	server.load(SERVER_MAIN)
 	return world, server
@@ -63,7 +63,7 @@ test("collision groups are registered and the configured pairs do not collide", 
 end)
 
 test("the base lighting profile is applied over whatever the place contained", function()
-	local world = Engine.new()
+	local world = Engine.new({ map = true })
 	local lighting = world.getService("Lighting")
 
 	-- What a Studio template typically leaves behind.
@@ -149,7 +149,9 @@ test("characters are kept in the Player collision group, including parts added l
 
 	local character = world.spawnCharacter(player, 4)
 	for _, part in character:GetChildren() do
-		expect.equal(part.CollisionGroup, "Player")
+		if part:IsA("BasePart") then
+			expect.equal(part.CollisionGroup, "Player")
+		end
 	end
 
 	-- An accessory arriving after the character spawned.
@@ -170,7 +172,7 @@ test("characters are kept in the Player collision group, including parts added l
 end)
 
 test("a player who was already connected when the server booted is still tracked", function()
-	local world = Engine.new()
+	local world = Engine.new({ map = true })
 	local early = world.addPlayer("Early", 7)
 	world.spawnCharacter(early, 2)
 

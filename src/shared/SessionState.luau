@@ -28,6 +28,12 @@ local KEYS: { [string]: KeySpec } = {
 	BuildVersion = { default = "" },
 	-- Where the session is in its loop. Driven by GameManager.
 	Phase = { default = "Lobby", allowed = { "Lobby", "Shift", "Results" } },
+	-- Current hour of the shift: 0 = 12 AM ... 6 = 6 AM (shift over). Driven by ShiftManager.
+	Hour = { default = 0 },
+	-- Workspace:GetServerTimeNow() at the moment the shift began, and the real seconds
+	-- one in-game hour lasts. Together they let every client draw the same clock.
+	ShiftStartTime = { default = 0 },
+	HourDuration = { default = 240 },
 }
 
 local SessionState = {}
