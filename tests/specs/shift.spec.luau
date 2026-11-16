@@ -154,11 +154,14 @@ test("clocking in starts the shift at 12 AM for everyone", function()
 	expect.equal(state.Get("Phase"), "Shift")
 	expect.equal(state.Get("Hour"), 0)
 	expect.equal(state.Get("ShiftStartTime"), world.now)
-	expect.equal(promptOf(clock).Enabled, false)
+	-- During the shift the same clock is used to clock out.
+	expect.equal(promptOf(clock).Enabled, true)
+	expect.equal(promptOf(clock).ActionText, "Clock out")
 
 	secondClient.load("StarterPlayer.StarterPlayerScripts.Client.Controllers.HudController").Refresh()
 	expect.equal(hud(second).Top.Clock.Text, "12:00 AM")
-	expect.equal(hud(second).Top.Status.Text, "NIGHT SHIFT")
+	expect.truthy(string.find(hud(second).Top.Status.Text, "NIGHT SHIFT", 1, true))
+	expect.truthy(string.find(hud(second).Top.Status.Text, "ENDS AT 6:00 AM", 1, true))
 
 	-- Both players were told who started it.
 	local notice = hud(second).Notifications:FindFirstChild("Notification")
@@ -180,9 +183,8 @@ test("the shift cannot be started twice or from far away", function()
 	clockIn(world, player)
 	local startedAt = state.Get("ShiftStartTime")
 	world.now += 50
-	task.wait(0.3)
-	world.trigger(promptOf(clock), player) -- prompt is disabled during the shift
 	expect.falsy(gameManager.StartShift(player))
+	expect.equal(state.Get("Phase"), "Shift")
 	expect.equal(state.Get("ShiftStartTime"), startedAt)
 end)
 
@@ -268,6 +270,91 @@ test("at 6 AM the shift completes once and everyone sees the results", function(
 	expect.equal(state.Get("Hour"), 0)
 end)
 
+-- Ending the shift early ---------------------------------------------------------------------
+
+test("alone, clocking out ends the shift early and says so in the results", function()
+	local world, server, config = boot()
+	local state = server.load("ReplicatedStorage.Shared.SessionState")
+	local shift = server.load(SERVICES .. "ShiftManager")
+	local player, client = join(world, "Tester", 1)
+	local hudController = client.load("StarterPlayer.StarterPlayerScripts.Client.Controllers.HudController")
+	local clock = clockIn(world, player)
+
+	world.now += config.Shift.HourDurationSeconds * 1.5
+	shift.Update()
+	task.wait(0.3)
+	world.trigger(promptOf(clock), player)
+
+	expect.equal(state.Get("Phase"), "Results")
+	expect.falsy(shift.IsRunning())
+	expect.equal(promptOf(clock).Enabled, false)
+	hudController.Refresh()
+	local results = hud(player).Results
+	expect.equal(results.Visible, true)
+	expect.equal(results.Title.Text, "SHIFT ENDED")
+	expect.truthy(string.find(results.Body.Text, "Clocked out at 1:30 AM", 1, true), results.Body.Text)
+	expect.truthy(string.find(results.Body.Text, "Hours worked: 1", 1, true), results.Body.Text)
+	expect.equal(hud(player).Top.Clock.Text, "1:30 AM")
+
+	-- The night can be started again afterwards.
+	server.load(SERVICES .. "GameManager").ReturnToLobby()
+	expect.equal(promptOf(clock).ActionText, "Clock in")
+	task.wait(0.3)
+	world.trigger(promptOf(clock), player)
+	expect.equal(state.Get("Phase"), "Shift")
+end)
+
+test("with a team, the shift only ends early when everyone has clocked out", function()
+	local world, server = boot()
+	local state = server.load("ReplicatedStorage.Shared.SessionState")
+	local first = join(world, "First", 1)
+	local second = join(world, "Second", 2)
+	local third = join(world, "Third", 3)
+	local clock = clockIn(world, first)
+
+	local function clockOut(player)
+		task.wait(0.3)
+		world.moveTo(player, clock)
+		world.trigger(promptOf(clock), player)
+	end
+	local function lastNotice(player)
+		local last = ""
+		for _, child in hud(player).Notifications:GetChildren() do
+			if child.Name == "Notification" then
+				last = child.Text
+			end
+		end
+		return last
+	end
+
+	clockOut(first)
+	expect.equal(state.Get("Phase"), "Shift")
+	expect.truthy(string.find(lastNotice(second), "First clocked out (1/3)", 1, true), lastNotice(second))
+
+	-- Voting again does not count twice.
+	clockOut(first)
+	expect.equal(state.Get("Phase"), "Shift")
+	expect.truthy(string.find(lastNotice(first), "already clocked out", 1, true))
+
+	clockOut(second)
+	expect.equal(state.Get("Phase"), "Shift")
+
+	-- The last player still working leaves: everyone who remains has clocked out.
+	world.removePlayer(third)
+	expect.equal(state.Get("Phase"), "Results")
+end)
+
+test("nobody can clock the team out from across the map", function()
+	local world, server = boot()
+	local state = server.load("ReplicatedStorage.Shared.SessionState")
+	local player = join(world, "Cheater", 1)
+	local clock = clockIn(world, player)
+	task.wait(0.3)
+	world.moveTo(player, 60, 3, 150)
+	world.trigger(promptOf(clock), player)
+	expect.equal(state.Get("Phase"), "Shift")
+end)
+
 test("a shift everyone has left is abandoned", function()
 	local world, server = boot()
 	local state = server.load("ReplicatedStorage.Shared.SessionState")
@@ -293,7 +380,7 @@ test("a player who joins during the shift sees the running clock", function()
 
 	local late = join(world, "Late", 2)
 	expect.equal(hud(late).Top.Clock.Text, "2:15 AM")
-	expect.equal(hud(late).Top.Status.Text, "NIGHT SHIFT")
+	expect.truthy(string.find(hud(late).Top.Status.Text, "NIGHT SHIFT", 1, true))
 end)
 
 test("the whole session runs without a single warning", function()

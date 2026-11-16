@@ -13,6 +13,7 @@ local Shared = ReplicatedStorage.Shared
 local GameConfig = require(Shared.Config.GameConfig)
 local Tags = require(Shared.Config.Tags)
 local SessionState = require(Shared.SessionState)
+local ShiftClock = require(Shared.ShiftClock)
 local Log = require(Shared.Util.Log)
 local Signal = require(Shared.Util.Signal)
 local Net = require(script.Parent.Parent.Net)
@@ -37,6 +38,8 @@ GameManager.PhaseChanged = Signal.new() :: Signal.Signal<string>
 
 local clockPrompts: { ProximityPrompt } = {}
 local contributors: { (results: Results) -> () } = {}
+-- Players who clocked out during this shift: each one is a vote to end it early.
+local clockedOut: { [Player]: boolean } = {}
 -- Bumped on every phase change so a delayed callback from an earlier phase can tell
 -- it is stale.
 local phaseSerial = 0
@@ -51,11 +54,27 @@ function GameManager.GetPhase(): string
 	return SessionState.Get("Phase")
 end
 
+-- The time clock starts the shift from the lobby and, during the shift, lets the team
+-- end it early. It does nothing while the results are showing.
+local function updateClockPrompt(prompt: ProximityPrompt, phase: string)
+	prompt.Enabled = phase ~= "Results"
+	if phase == "Shift" then
+		prompt.ActionText = "Clock out"
+		prompt.ObjectText = "End the shift early"
+		prompt.HoldDuration = 2
+	else
+		prompt.ActionText = "Clock in"
+		prompt.ObjectText = "Start the night shift"
+		prompt.HoldDuration = 1
+	end
+end
+
 local function setPhase(phase: string)
 	phaseSerial += 1
+	clockedOut = {}
 	SessionState.Set("Phase", phase)
 	for _, prompt in clockPrompts do
-		prompt.Enabled = phase == "Lobby"
+		updateClockPrompt(prompt, phase)
 	end
 	GameManager.PhaseChanged:Fire(phase)
 end
@@ -71,8 +90,8 @@ function GameManager.StartShift(startedBy: Player?): boolean
 	Net.FireAllClients(
 		"Notify",
 		if startedBy
-			then startedBy.Name .. " clocked in. The night shift has begun."
-			else "The night shift has begun.",
+			then startedBy.Name .. " clocked in. The night shift has begun. It ends at 6 AM."
+			else "The night shift has begun. It ends at 6 AM.",
 		"Info"
 	)
 	ShiftManager.Begin()
@@ -94,6 +113,11 @@ local function showResults(completed: boolean, hoursWorked: number, durationSeco
 		Completed = completed,
 		HoursWorked = hoursWorked,
 		DurationSeconds = math.floor(durationSeconds),
+		ClockOutTime = ShiftClock.format(
+			durationSeconds,
+			GameConfig.Shift.HourDurationSeconds,
+			GameConfig.Shift.Hours
+		),
 	}
 	for _, contribute in contributors do
 		contribute(results)
@@ -108,6 +132,45 @@ local function showResults(completed: boolean, hoursWorked: number, durationSeco
 	end)
 end
 
+-- Ends the shift before 6 AM. The results count it as not completed.
+function GameManager.EndShiftEarly(): boolean
+	if GameManager.GetPhase() ~= "Shift" then
+		return false
+	end
+	local elapsed, hour = ShiftManager.GetElapsed(), ShiftManager.GetHour()
+	ShiftManager.Stop()
+	log:Info("Shift ended early at hour %d", hour)
+	showResults(false, hour, elapsed)
+	return true
+end
+
+-- Ends the shift once every player in the session has clocked out. `voter` is the
+-- player who just did, if any.
+local function resolveClockOut(voter: Player?)
+	local ready = PlayerManager.GetReadyPlayers()
+	local votes = 0
+	for _, player in ready do
+		if clockedOut[player] then
+			votes += 1
+		end
+	end
+	if #ready > 0 and votes >= #ready then
+		Net.FireAllClients("Notify", "Everyone clocked out. The shift ended early.", "Info")
+		GameManager.EndShiftEarly()
+	elseif voter then
+		Net.FireAllClients(
+			"Notify",
+			string.format(
+				"%s clocked out (%d/%d). Clock out too to end the shift early.",
+				voter.Name,
+				votes,
+				#ready
+			),
+			"Info"
+		)
+	end
+end
+
 local function registerClock(instance: Instance)
 	if not instance:IsA("BasePart") then
 		return
@@ -117,9 +180,24 @@ local function registerClock(instance: Instance)
 		object = "Start the night shift",
 		hold = 1,
 	}, function(player: Player)
-		GameManager.StartShift(player)
+		local phase = GameManager.GetPhase()
+		if phase == "Lobby" then
+			GameManager.StartShift(player)
+		elseif phase == "Shift" then
+			if clockedOut[player] then
+				Net.FireClient(
+					player,
+					"Notify",
+					"You already clocked out. Waiting for the rest of the team.",
+					"Info"
+				)
+				return
+			end
+			clockedOut[player] = true
+			resolveClockOut(player)
+		end
 	end)
-	prompt.Enabled = GameManager.GetPhase() == "Lobby"
+	updateClockPrompt(prompt, GameManager.GetPhase())
 	table.insert(clockPrompts, prompt)
 end
 
@@ -132,11 +210,15 @@ function GameManager.Init()
 		)
 	end)
 
-	-- A shift with nobody left in it is abandoned.
-	PlayerManager.PlayerLeft:Connect(function()
+	PlayerManager.PlayerLeft:Connect(function(player: Player)
+		clockedOut[player] = nil
 		if GameManager.GetPhase() ~= "Lobby" and #PlayerManager.GetReadyPlayers() == 0 then
+			-- A shift with nobody left in it is abandoned.
 			log:Info("Everyone left; returning to the lobby")
 			GameManager.ReturnToLobby()
+		elseif GameManager.GetPhase() == "Shift" then
+			-- The player who left may have been the only one still working.
+			resolveClockOut(nil)
 		end
 	end)
 end

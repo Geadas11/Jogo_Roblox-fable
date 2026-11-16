@@ -18,7 +18,7 @@ local NOTIFICATION_SECONDS = 5
 
 local STATUS = {
 	Lobby = "CLOCK IN AT THE EMPLOYEE ROOM TO START YOUR SHIFT",
-	Shift = "NIGHT SHIFT",
+	Shift = "NIGHT SHIFT  ·  ENDS AT 6:00 AM",
 	Results = "SHIFT OVER",
 }
 
@@ -130,7 +130,11 @@ function HudController.Refresh()
 		clockLabel.Text = ShiftClock.format(elapsed, SessionState.Get("HourDuration"), GameConfig.Shift.Hours)
 		clockLabel.TextColor3 = Theme.Colors.Text
 	elseif phase == "Results" then
-		clockLabel.Text = ShiftClock.format(math.huge, 1, GameConfig.Shift.Hours)
+		-- The clock stays on the time the shift ended (set with the results). A client
+		-- that joined after that has nothing to show.
+		if clockLabel.Text == "" or clockLabel.Text == "OFF SHIFT" then
+			clockLabel.Text = "--:--"
+		end
 		clockLabel.TextColor3 = Theme.Colors.Good
 	else
 		clockLabel.Text = "OFF SHIFT"
@@ -187,7 +191,7 @@ local function showResults(results: any)
 	resultsTitle.TextColor3 = if results.Completed then Theme.Colors.Good else Theme.Colors.Accent
 	resultsBody.Text = string.format(
 		"Clocked out at %s\nHours worked: %d\nTime on shift: %d:%02d\nTasks completed: %d of %d\nEarned: $%d\n\nReturning to the employee room...",
-		ShiftClock.format(math.huge, 1, GameConfig.Shift.Hours),
+		tostring(results.ClockOutTime or ""),
 		tonumber(results.HoursWorked) or 0,
 		seconds // 60,
 		seconds % 60,
@@ -195,6 +199,7 @@ local function showResults(results: any)
 		tonumber(results.TasksTotal) or 0,
 		tonumber(results.Earnings) or 0
 	)
+	clockLabel.Text = tostring(results.ClockOutTime or "")
 	resultsPanel.Visible = true
 end
 
