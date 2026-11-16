@@ -35,8 +35,8 @@ Verificado fora do Studio com `./scripts/check.sh`: o place é gerado, relido e 
 - [x] Tags e Attributes (`Config/Tags`) · zonas · pontos de patrulha e de clientes · pontos de tarefas
 - [x] 8 câmaras de segurança · 6 spawns · 63 luzes com zona e circuito
 - [x] Verificação automática de caminhabilidade e planta (`docs/floor-plan.svg`)
-- [ ] **Teste no Studio: percorrer o mapa todo · opinião sobre luz e escala**
-- [ ] Afinar a iluminação com base no que se vir no Studio
+- [T] Teste no Studio pelo dono do projeto: mapa percorrido, luz e escala aprovadas
+- [x] Correção (build 0.3.1): os tetos eram atravessáveis ao saltar — agora são sólidos; letreiros suspensos subidos — **por confirmar no Studio**
 - [ ] Dressing (meshes, texturas, detalhe ambiental) — depois da jogabilidade base
 
 ## Fase 4 — Jogabilidade base

@@ -483,7 +483,9 @@ function Kit:marker(parent, name, x, y, z, tag, attributes)
 	part.CanQuery = false
 	part.CastShadow = false
 	part.Parent = parent
-	self:mark(part, tag, attributes)
+	if tag then
+		self:mark(part, tag, attributes)
+	end
 	return part
 end
 

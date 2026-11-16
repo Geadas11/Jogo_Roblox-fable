@@ -11,8 +11,8 @@ P.wall = S(214, 212, 204, "Plaster")
 P.wallBack = S(150, 152, 150, "Concrete")
 P.wallCold = S(206, 216, 220, "Metal")
 P.roof = S(52, 52, 56, "Concrete")
-P.ceiling = S(226, 226, 220, "Plaster", { collide = false, shadow = true })
-P.ceilingBack = S(84, 86, 88, "Metal", { collide = false, shadow = true })
+P.ceiling = S(226, 226, 220, "Plaster")
+P.ceilingBack = S(84, 86, 88, "Metal")
 
 -- Floors
 P.floorShop = S(204, 202, 194, "CeramicTiles")

@@ -44,7 +44,7 @@ return function(k, root)
 					zone.ceiling,
 					zone.z1,
 					zone.x2,
-					zone.ceiling + 0.4,
+					zone.ceiling + 1,
 					zone.z2,
 					style
 				)
@@ -52,17 +52,7 @@ return function(k, root)
 		end
 	end
 	local fz = Layout.Freezer
-	k:span(
-		ceilings,
-		"FreezerCeiling",
-		fz.x1,
-		fz.ceiling,
-		fz.z1,
-		fz.x2,
-		fz.ceiling + 0.4,
-		fz.z2,
-		P.ceilingBack
-	)
+	k:span(ceilings, "FreezerCeiling", fz.x1, fz.ceiling, fz.z1, fz.x2, fz.ceiling + 1, fz.z2, P.ceilingBack)
 
 	local b = Layout.Building
 	k:span(structure, "Roof", b.x1 - 0.5, H, b.z1 - 0.5, b.x2 + 0.5, H + 1, b.z2 + 0.5, P.roof)
@@ -110,7 +100,7 @@ return function(k, root)
 	k:wallX(walls, "ElectricalSouthWall", -58, 10, 40, 0, H, P.wallBack, { { 22, 27, DOOR_TOP } })
 
 	-- Walk-in freezer (insulated panels, lower than the room around it).
-	k:wallZ(walls, "FreezerWestWall", fz.x1, fz.z1, fz.z2, 0, fz.ceiling + 0.4, P.wallCold)
+	k:wallZ(walls, "FreezerWestWall", fz.x1, fz.z1, fz.z2, 0, fz.ceiling + 1, P.wallCold)
 	k:wallX(
 		walls,
 		"FreezerSouthWall",
@@ -118,7 +108,7 @@ return function(k, root)
 		fz.x1,
 		fz.x2,
 		0,
-		fz.ceiling + 0.4,
+		fz.ceiling + 1,
 		P.wallCold,
 		{ { 82, 87, DOOR_TOP } }
 	)
@@ -161,7 +151,7 @@ return function(k, root)
 		P.red,
 		{ zone = "EastAlley", closed = true }
 	)
-	k:mark(exitDoor, "EmergencyExit")
+	k:mark(exitDoor, "EmergencyExit", { Locked = true })
 
 	-- Loading dock roll-up doors (closed).
 	for index, x in { -80, -50 } do

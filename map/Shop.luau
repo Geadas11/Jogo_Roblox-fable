@@ -11,6 +11,9 @@ local Color3 = Kit.Color3
 -- Shelf levels of a gondola (height of the surface products stand on).
 local LEVELS = { 0.5, 2.0, 3.5, 5.0 }
 local GONDOLA_HEIGHT = 6.6
+
+-- Invisible, non-colliding: marks where a prompt should appear.
+local ANCHOR = Kit.style(255, 255, 255, "SmoothPlastic", { alpha = 1, collide = false })
 local BAY_LENGTH = 6
 
 -- Product silhouettes: w = size along the shelf, h = height, d = depth.
@@ -79,6 +82,7 @@ return function(k, root)
 			local bayEnd = math.min(z + BAY_LENGTH, z2)
 			local bay = k:model(parent, "Bay")
 			k:mark(bay, "ShelfBay", { Category = category.name, Aisle = aisle, Stocked = true })
+			k:marker(bay, "Anchor", xFront + outward * 0.4, 3.2, (z + bayEnd) / 2)
 			for _, y in LEVELS do
 				stock(z, bayEnd, category.kinds, function(along, kind, width, height, style)
 					local depth = kind.d or width
@@ -127,11 +131,11 @@ return function(k, root)
 		local text =
 			string.format("AISLE %d\n%s%s", aisle, left.name, if right then " · " .. right.name else "")
 		local board =
-			k:span(signs, "AisleSign" .. aisle, cx - 4, 11.2, 43.85, cx + 4, 13.6, 44.15, Kit.decor(P.blue))
+			k:span(signs, "AisleSign" .. aisle, cx - 4, 12.9, 43.85, cx + 4, 15.2, 44.15, Kit.decor(P.blue))
 		k:text(board, "S", text, { pps = 20 })
 		k:text(board, "N", text, { pps = 20 })
 		for _, x in { cx - 3.5, cx + 3.5 } do
-			k:span(signs, "SignWire", x - 0.04, 13.6, 43.96, x + 0.04, 16, 44.04, P.dDarkSteel)
+			k:span(signs, "SignWire", x - 0.04, 15.2, 43.96, x + 0.04, 16, 44.04, P.dDarkSteel)
 		end
 	end
 
@@ -141,6 +145,7 @@ return function(k, root)
 	local function cooler(name, kind, place, cylinderAt)
 		local unit = k:model(chilled, name)
 		k:mark(unit, "FridgeUnit", { Kind = kind, Working = true })
+		place(unit, "Anchor", 2.5, 3.2, 3.5, 3.5, 3.4, 4.5, ANCHOR)
 		place(unit, "Collider", 0, 0, 0, 6, 3, 8.2, P.collider)
 		place(unit, "Base", 0, 0, 0, 6, 3, 0.8, Kit.decor(P.darkSteel))
 		place(unit, "Back", 0, 0, 0.8, 6, 0.3, 7.4, Kit.decor(P.black))
@@ -212,6 +217,7 @@ return function(k, root)
 				string.format("ChestFreezer%d%s", index, if runIndex == 1 then "North" else "South")
 			)
 			k:mark(island, "FridgeUnit", { Kind = "Chest", Working = true })
+			k:marker(island, "Anchor", cx, 4, (z1 + z2) / 2)
 			k:span(island, "Body", cx - 3, 0, z1, cx + 3, 3, z2, P.white)
 			k:span(island, "Well", cx - 2.6, 3, z1 + 0.4, cx + 2.6, 3.05, z2 - 0.4, P.dBlack)
 			k:span(island, "RimWest", cx - 3, 3, z1, cx - 2.6, 3.7, z2, P.dSteel)
@@ -329,10 +335,10 @@ return function(k, root)
 			signs,
 			"Banner" .. index,
 			banner[1] - 9,
-			11.5,
+			13,
 			67.9,
 			banner[1] + 9,
-			13.5,
+			15,
 			68.1,
 			Kit.decor(P.red)
 		)

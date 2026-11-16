@@ -7,7 +7,7 @@ local deepFreeze = require(script.Parent.Parent.Util.DeepFreeze)
 return deepFreeze({
 	-- Printed by the server and every client at boot, so it is obvious whether Studio
 	-- is running the code that is currently in the repository. Bump on every delivery.
-	BuildVersion = "0.3.0",
+	BuildVersion = "0.3.1",
 
 	-- Intended server size. The real limit is set in Studio (Game Settings > Places);
 	-- the server only reports when the two disagree.

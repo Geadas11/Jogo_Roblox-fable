@@ -1,6 +1,7 @@
 # Fase 3 — Ambiente
 
-Estado: **implementado, à espera do teu teste no Studio.** Build `0.3.0`.
+Estado: **testado no Studio pelo dono do projeto** (mapa percorrido; luz e escala aprovadas).
+Build `0.3.1`: corrige os tetos, que se atravessavam ao saltar. Essa correção está por confirmar.
 
 O supermercado existe: um edifício completo, com parque de estacionamento, que podes percorrer a
 pé. É um *greybox* — a geometria, as dimensões e a disposição são as definitivas, mas é tudo feito
@@ -79,7 +80,7 @@ elétrico, disjuntores, computador do escritório, relógio de ponto, ferramenta
 ## 3. Lista de verificação no Studio
 
 - [ ] O ficheiro abre e o Play arranca sem linhas vermelhas no Output.
-- [ ] `[NSS/Server/Main] Server ready (build 0.3.0, …)` e `Client ready (build 0.3.0, …)`.
+- [ ] `[NSS/Server/Main] Server ready (build 0.3.1, …)` e `Client ready (build 0.3.1, …)`.
 - [ ] Apareces na sala dos funcionários (mesa, cacifos, máquina de bebidas).
 - [ ] Consegues ir a pé a todo o lado: corredor → loja → todos os corredores → caixas →
       casas de banho → armazém → manutenção → sala elétrica → câmara fria → congelador →
