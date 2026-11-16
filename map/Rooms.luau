@@ -175,9 +175,9 @@ return function(k, root)
 	k:span(storage, "LabelPrinter", -7.6, 3, -33, -6, 3.8, -31.8, P.dGrey)
 
 	for index, x in { -71, -41 } do
-		k:marker(storage, "DeliveryPoint" .. index, x, 1, -76, "DeliveryPoint", { Zone = "Storage" })
+		k:marker(storage, "DeliveryPoint" .. index, x, 0.5, -76, "DeliveryPoint", { Zone = "Storage" })
 	end
-	k:marker(storage, "DeliveryPoint3", -52, 1, -68, "DeliveryPoint", { Zone = "Storage" })
+	k:marker(storage, "DeliveryPoint3", -52, 0.5, -68, "DeliveryPoint", { Zone = "Storage" })
 
 	-- Maintenance room --------------------------------------------------------------------
 	local maintenance = k:folder(root, "Maintenance")

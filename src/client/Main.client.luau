@@ -19,6 +19,7 @@ local Net = require(script.Parent.Net)
 local CONTROLLER_ORDER = {
 	"CameraController",
 	"HudController",
+	"ObjectivesController",
 }
 
 local log = Log.new("Main")

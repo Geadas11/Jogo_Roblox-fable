@@ -48,6 +48,30 @@ local Definitions: { [string]: Definition } = {
 		args = {},
 	},
 
+	-- The objectives list changed. Carries the complete list, so a client never has to
+	-- piece it together from partial updates.
+	TasksChanged = {
+		kind = "Event",
+		from = "Server",
+		args = {},
+	},
+
+	-- Asks for the current objectives list (used once, when a client starts).
+	GetTasks = {
+		kind = "Function",
+		from = "Client",
+		args = {},
+		rate = { burst = 3, perSecond = 0.2 },
+	},
+
+	-- Put down whatever the player is carrying.
+	DropItem = {
+		kind = "Event",
+		from = "Client",
+		args = {},
+		rate = { burst = 4, perSecond = 2 },
+	},
+
 	-- The shift is over. Carries the results table shown on the results screen.
 	ShiftEnded = {
 		kind = "Event",

@@ -30,6 +30,7 @@ local notifications: Frame
 local resultsPanel: Frame
 local resultsTitle: TextLabel
 local resultsBody: TextLabel
+local screen: ScreenGui
 
 local function build(): ScreenGui
 	clockLabel = Theme.label({
@@ -89,7 +90,7 @@ local function build(): ScreenGui
 	})
 	resultsBody = Theme.label({
 		Name = "Body",
-		Size = UDim2.new(1, 0, 0, 120),
+		Size = UDim2.new(1, 0, 0, 170),
 		TextSize = 18,
 		TextColor3 = Theme.Colors.TextDim,
 		Text = "",
@@ -99,7 +100,7 @@ local function build(): ScreenGui
 		Name = "Results",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.new(0.5, 0, 0.45, 0),
-		Size = UDim2.new(0, 440, 0, 210),
+		Size = UDim2.new(0, 440, 0, 260),
 		Visible = false,
 	}, {
 		Theme.create("UIListLayout", {
@@ -172,6 +173,11 @@ function HudController.Notify(text: string, kind: string?)
 	end)
 end
 
+-- The HUD's ScreenGui, for controllers that add their own panels to it.
+function HudController.GetScreen(): ScreenGui
+	return screen
+end
+
 local function showResults(results: any)
 	if type(results) ~= "table" then
 		return
@@ -180,18 +186,22 @@ local function showResults(results: any)
 	resultsTitle.Text = if results.Completed then "SHIFT COMPLETE" else "SHIFT ENDED"
 	resultsTitle.TextColor3 = if results.Completed then Theme.Colors.Good else Theme.Colors.Accent
 	resultsBody.Text = string.format(
-		"Clocked out at %s\nHours worked: %d\nTime on shift: %d:%02d\n\nReturning to the employee room...",
+		"Clocked out at %s\nHours worked: %d\nTime on shift: %d:%02d\nTasks completed: %d of %d\nEarned: $%d\n\nReturning to the employee room...",
 		ShiftClock.format(math.huge, 1, GameConfig.Shift.Hours),
 		tonumber(results.HoursWorked) or 0,
 		seconds // 60,
-		seconds % 60
+		seconds % 60,
+		tonumber(results.TasksCompleted) or 0,
+		tonumber(results.TasksTotal) or 0,
+		tonumber(results.Earnings) or 0
 	)
 	resultsPanel.Visible = true
 end
 
 function HudController.Init()
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
-	build().Parent = playerGui
+	screen = build()
+	screen.Parent = playerGui
 
 	Net.On("Notify", HudController.Notify)
 	Net.On("ShiftEnded", showResults)

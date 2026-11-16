@@ -19,8 +19,11 @@ local SERVICE_ORDER = {
 	"PlayerManager",
 	"InteractionService",
 	"DoorService",
+	"CarryService",
+	"ToolService",
 	"ShiftManager",
 	"GameManager",
+	"TaskManager",
 }
 
 local log = Log.new("Main")

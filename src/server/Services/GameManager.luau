@@ -26,6 +26,8 @@ export type Results = {
 	Completed: boolean,
 	HoursWorked: number,
 	DurationSeconds: number,
+	-- Other systems add their own fields (see AddResultsContributor).
+	[string]: any,
 }
 
 local GameManager = {}
@@ -34,9 +36,16 @@ local GameManager = {}
 GameManager.PhaseChanged = Signal.new() :: Signal.Signal<string>
 
 local clockPrompts: { ProximityPrompt } = {}
+local contributors: { (results: Results) -> () } = {}
 -- Bumped on every phase change so a delayed callback from an earlier phase can tell
 -- it is stale.
 local phaseSerial = 0
+
+-- Lets another system add its own figures to the end-of-shift results (tasks done,
+-- money earned...). Only stores the callback, so it is safe to call from Init.
+function GameManager.AddResultsContributor(contribute: (results: Results) -> ())
+	table.insert(contributors, contribute)
+end
 
 function GameManager.GetPhase(): string
 	return SessionState.Get("Phase")
@@ -58,7 +67,7 @@ function GameManager.StartShift(startedBy: Player?): boolean
 	end
 	log:Info("Shift started by %s", if startedBy then startedBy.Name else "the server")
 	setPhase("Shift")
-	ShiftManager.Begin()
+	-- Announce first, so the tasks handed out at 12 AM appear after it.
 	Net.FireAllClients(
 		"Notify",
 		if startedBy
@@ -66,6 +75,7 @@ function GameManager.StartShift(startedBy: Player?): boolean
 			else "The night shift has begun.",
 		"Info"
 	)
+	ShiftManager.Begin()
 	return true
 end
 
@@ -85,6 +95,9 @@ local function showResults(completed: boolean, hoursWorked: number, durationSeco
 		HoursWorked = hoursWorked,
 		DurationSeconds = math.floor(durationSeconds),
 	}
+	for _, contribute in contributors do
+		contribute(results)
+	end
 	Net.FireAllClients("ShiftEnded", results)
 
 	local serial = phaseSerial

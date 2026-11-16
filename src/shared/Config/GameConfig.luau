@@ -7,7 +7,7 @@ local deepFreeze = require(script.Parent.Parent.Util.DeepFreeze)
 return deepFreeze({
 	-- Printed by the server and every client at boot, so it is obvious whether Studio
 	-- is running the code that is currently in the repository. Bump on every delivery.
-	BuildVersion = "0.4.0",
+	BuildVersion = "0.4.1",
 
 	-- Intended server size. The real limit is set in Studio (Game Settings > Places);
 	-- the server only reports when the two disagree.
@@ -28,6 +28,17 @@ return deepFreeze({
 		DistanceTolerance = 4,
 		-- Minimum seconds between two interactions by the same player.
 		CooldownSeconds = 0.25,
+	},
+
+	Carry = {
+		-- A player holds one thing at a time. Names shown in the HUD:
+		Names = {
+			StockBox = "Stock box",
+			Mop = "Mop",
+		},
+		-- Mops available at the maintenance room.
+		MopCount = 2,
+		PickupDistance = 7,
 	},
 
 	Doors = {

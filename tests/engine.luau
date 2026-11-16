@@ -46,7 +46,7 @@ local COMMON_SIGNALS = { DescendantAdded = true, ChildAdded = true }
 local CLASS_SIGNALS = {
 	RemoteEvent = { OnServerEvent = true, OnClientEvent = true },
 	Players = { PlayerAdded = true, PlayerRemoving = true },
-	Player = { CharacterAdded = true },
+	Player = { CharacterAdded = true, CharacterRemoving = true },
 	DataModel = { Loaded = true },
 	ProximityPrompt = { Triggered = true },
 	TextButton = { Activated = true },
