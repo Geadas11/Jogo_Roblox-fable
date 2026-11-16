@@ -1,6 +1,8 @@
-# Place files are built or saved from Studio; keep them out of Git unless we decide otherwise.
+# Place files saved from Studio stay out of Git. The one exception is the build that
+# tools/build.luau produces, which is the file to open in Studio.
 *.rbxl
 *.rbxlx
+!/releases/NightShiftSupermarket.rbxl
 *.rbxl.lock
 *.rbxlx.lock
 sourcemap.json

@@ -177,3 +177,6 @@ if #failures > 0 then
 	process.exit(1)
 end
 print(string.format("%sAll %d checks passed%s", stdio.color("green"), passed, stdio.color("reset")))
+-- Exit explicitly: one spec deliberately lets a handler fail in a background thread,
+-- which Lune would otherwise report as a non-zero exit code.
+process.exit(0)

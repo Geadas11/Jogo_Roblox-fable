@@ -5,7 +5,13 @@ O código vive neste repositório e é sincronizado para o Roblox Studio com o [
 
 - **Estado do projeto:** [`PROGRESS.md`](PROGRESS.md)
 - **Plano e decisões:** [`docs/01-pre-producao.md`](docs/01-pre-producao.md)
-- **Ligar o Studio e testar a fase atual:** [`docs/02-setup.md`](docs/02-setup.md)
+- **Fase atual — o mapa, como abrir e o que testar:** [`docs/03-ambiente.md`](docs/03-ambiente.md)
+- **Fundação do código e ligação por Rojo:** [`docs/02-setup.md`](docs/02-setup.md)
+
+## Jogar / testar
+
+Abre [`releases/NightShiftSupermarket.rbxl`](releases/NightShiftSupermarket.rbxl) no Roblox Studio e
+carrega em Play. O ficheiro contém o código e o mapa.
 
 ## Estrutura
 
@@ -14,9 +20,10 @@ O código vive neste repositório e é sincronizado para o Roblox Studio com o [
 | `src/shared` | `ReplicatedStorage.Shared` |
 | `src/server` | `ServerScriptService.Server` |
 | `src/client` | `StarterPlayer.StarterPlayerScripts.Client` |
-| `tests` | não vai para o jogo; testes que correm fora do Studio |
-
-O mapa e os assets vivem no ficheiro do place, no Studio.
+| `map` | gerador do supermercado; produz `Workspace.Map` |
+| `tools` | construção do ficheiro do place |
+| `tests` | testes que correm fora do Studio |
+| `releases` | o place construído, pronto a abrir |
 
 ## Verificações automáticas
 
@@ -25,6 +32,8 @@ Com as ferramentas de `rokit.toml` instaladas (`rojo`, `stylua`, `lune`):
 ```bash
 ./scripts/check.sh
 ```
+
+Formata, corre os testes, gera o mapa, verifica-o e grava o place em `releases/`.
 
 Os testes correm sobre um motor simulado. Servem para apanhar erros de código cedo; não
 substituem o teste no Studio.

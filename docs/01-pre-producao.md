@@ -60,13 +60,15 @@ depois substituir peça a peça por arte final, sem tocar na lógica.
 | Definições | Guardadas no perfil do jogador (DataStore). | O Roblox não tem armazenamento local no cliente; "guardar localmente" não é possível. |
 | Duração | 6 horas × 4 min = **24 min** por turno, configurável. | Dentro dos 20–30 min pedidos. |
 
-### 1.3 Como o mapa vai ser construído
+### 1.3 Como o mapa é construído
 
-Proponho três camadas:
+Três camadas:
 
-1. **Gerador de greybox** (`tools/MapBuilder.luau`): script que corres **uma vez** na Command Bar
-   do Studio. Cria o edifício completo com Parts — todas as 9 áreas, corredores, portas, pontos
-   de patrulha, câmaras, esconderijos — já com tags e Attributes corretos. Guardas o resultado no `.rbxl`.
+1. **Gerador de greybox** (`map/`, corrido por `tools/build.luau`): cria o edifício completo com
+   Parts — todas as áreas, corredores, portas, pontos de patrulha, câmaras, esconderijos — já com
+   tags e Attributes, e grava-o diretamente no ficheiro do place. (O plano inicial era correres um
+   script na Command Bar; gerar o ficheiro do meu lado poupa-te esse passo e deixa-me verificar o
+   resultado antes de to entregar.)
 2. **Dressing manual**: substituis os blocos por meshes/modelos, mantendo as tags.
 3. **Detalhe ambiental**: decalques, sujidade, cartazes, pistas da história.
 
@@ -177,16 +179,14 @@ StarterPlayer
 │           ├── SettingsMenu / DeathScreen / ResultsScreen / Subtitles
 └── StarterCharacterScripts        (vazio; lógica do personagem fica nos Controllers)
 
-Workspace                          [Studio]
-├── Map
-│   ├── Exterior (ParkingLot, Facade)
-│   ├── Entrance / ShopFloor / Checkout / Storage
-│   ├── EmployeeRoom / Office / Refrigeration / Bathrooms / ElectricalRoom
-├── Interactables                  tudo com tags
-├── Navigation (PatrolNodes, CustomerNodes, PathfindingModifiers)
-├── CCTV                           pontos de câmara
-├── EventLocations
-├── SpawnLocations
+Workspace
+├── Map                            [gerado por map/ — não editar à mão]
+│   ├── Structure                  chão, paredes, tetos, portas, montras
+│   ├── ShopFloor / Storage / Maintenance / Electrical / ColdStorage
+│   ├── StaffCorridor / Office / EmployeeRoom / BathroomA / BathroomB
+│   ├── Exterior                   parque, traseiras, becos, limites
+│   ├── Lights                     luzes de teto por zona
+│   └── Markers                    zonas, patrulha, clientes, tarefas, CCTV, spawns
 ├── NPCs                           criados em runtime
 └── Monster                        criado em runtime
 ```

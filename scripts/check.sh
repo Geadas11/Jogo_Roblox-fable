@@ -5,12 +5,10 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 echo "== Format (stylua)"
-stylua --check src tests
-
-echo "== Project builds (rojo)"
-mkdir -p build
-rojo build default.project.json --output build/NightShiftSupermarket.rbxl
-rojo build preview.project.json --output build/NightShiftSupermarket-preview.rbxl
+stylua --check src tests map tools
 
 echo "== Tests (lune)"
 lune run tests/run
+
+echo "== Place build and map checks (rojo + lune)"
+lune run tools/build

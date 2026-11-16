@@ -1,6 +1,7 @@
 # Fase 2 — Setup do projeto
 
-Estado: **implementado, à espera do teu teste no Studio.** Build `0.2.0`.
+Estado: **aprovado pelo dono do projeto depois de ver a pré-visualização** (os testes B, C e D da
+secção 4 não foram confirmados individualmente). Build `0.2.0`.
 
 Esta fase não tem jogabilidade. Entrega a fundação em que tudo o resto assenta: ligação
 Rojo, arranque ordenado de servidor e cliente, camada de rede com validação, estado
@@ -63,21 +64,14 @@ Nada é gravado no ficheiro do place.
 
 ## 2. Ver o estado atual sem instalar nada
 
-Para uma primeira olhadela não precisas do Rojo. Eu envio-te um ficheiro
-`NightShiftSupermarket-preview-<versão>.rbxl` já com todo o código lá dentro, um chão e um ponto
-de spawn.
+Não precisas do Rojo para ver e testar o jogo. O ficheiro `releases/NightShiftSupermarket.rbxl`
+tem tudo lá dentro — código e mapa.
 
-1. Abre o ficheiro no Roblox Studio (duplo clique, ou *File → Open from File*).
+1. Descarrega-o e abre-o no Roblox Studio (duplo clique, ou *File → Open from File*).
 2. *View → Output*.
-3. Carrega em **Play** (F5) e segue a lista da secção 4.
+3. Carrega em **Play** (F5).
 
-Este ficheiro é só para ver e testar. O place a sério (onde o mapa vai ser construído e que
-publicas no grupo) é o da secção seguinte. Qualquer pessoa com as ferramentas instaladas pode
-gerar o ficheiro com:
-
-```bash
-rojo build preview.project.json --output NightShiftSupermarket-preview.rbxl
-```
+Cada vez que eu entregar uma versão nova, este ficheiro é substituído.
 
 ---
 
@@ -159,7 +153,7 @@ for i = 1, 50 do game.ReplicatedStorage.Remotes.Events.ClientReady:FireServer() 
 
 ### D. Definições do place
 - [ ] *Game Settings → Places*: máximo de **6** jogadores (o nome exato do menu pode variar; só
-      fica disponível depois de publicado, por isso não se aplica ao ficheiro de pré-visualização).
+      fica disponível depois de o place estar publicado).
 
 Quando me disseres o resultado de A–D, marco a fase como testada e avanço para a Fase 3.
 

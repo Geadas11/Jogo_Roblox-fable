@@ -1,4 +1,4 @@
-# Exact tool versions used for this project. Install them all with `rokit install`
+# Exact tool versions used to build and check this project. Install them all with `rokit install`
 # (https://github.com/rojo-rbx/rokit), or download each release manually.
 [tools]
 rojo = "rojo-rbx/rojo@7.7.1"
