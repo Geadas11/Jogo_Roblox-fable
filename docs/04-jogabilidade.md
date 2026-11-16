@@ -1,6 +1,7 @@
 # Fase 4 — Jogabilidade base
 
-Estado: **parte A e parte B implementadas, à espera do teu teste no Studio.** Build `0.4.1`.
+Estado: **testado no Studio pelo dono do projeto** (turno a solo; tarefas e transporte aprovados).
+Build `0.4.3`: acrescenta terminar o turno mais cedo e duas tarefas novas — **por confirmar**.
 
 Já é um jogo, embora sem terror: picas o ponto, o relógio da noite corre das 12 AM às 6 AM,
 recebes tarefas de supermercado a cada hora, fazes o trabalho e no fim vês o resumo do turno.
@@ -15,8 +16,10 @@ recebes tarefas de supermercado a cada hora, fazes o trabalho e no fim vês o re
    mantém **E** premido: *Clock in*.
 4. O relógio passa a **12:00 AM** e aparecem duas tarefas no canto superior esquerdo.
 5. Faz as tarefas (ver abaixo). A cada hora de jogo chegam mais duas.
-6. Às **6:00 AM** o turno acaba e aparece o resumo; 20 segundos depois voltas ao estado inicial
-   e podes picar o ponto outra vez.
+6. O turno acaba sozinho às **6:00 AM** (o ecrã diz *ENDS AT 6:00 AM*) e aparece o resumo.
+   **Para acabar antes**, volta ao relógio de ponto e usa *Clock out*. Sozinho, o turno termina
+   logo; em equipa é um voto, e o turno só termina quando todos tiverem picado a saída.
+7. 20 segundos depois do resumo voltas ao estado inicial e podes picar o ponto outra vez.
 
 Uma hora de jogo dura 4 minutos reais; o turno completo dura 24 minutos.
 
@@ -30,12 +33,14 @@ Uma hora de jogo dura 4 minutos reais; o turno completo dura 24 minutos.
 | Interagir (portas, objetos, tarefas) | **E** (manter premido quando a barra aparece) | tocar no botão do prompt |
 | Largar o que levas na mão | **G** | botão **DROP** |
 
-### As três tarefas
+### As cinco tarefas
 | Tarefa | O que fazer |
 |---|---|
 | **Restock shelves** | Algumas secções de prateleira ficam vazias. Vai ao **armazém**, pega numa caixa (*Pick up*), leva-a à prateleira vazia e usa *Restock*. Uma caixa por secção. A tarefa diz em que corredores. |
 | **Clean up spills** | Aparecem poças no chão. Vai à **manutenção** buscar uma **esfregona** (há duas, ao lado do balde amarelo) e usa *Clean* em cada poça. A esfregona não se gasta. |
 | **Check the coolers** | Alguns frigoríficos e arcas têm uma **luz âmbar** por cima. Vai até cada um e usa *Inspect*. |
+| **Cash up the registers** | Algumas caixas registadoras têm a mesma luz âmbar. Vai a cada uma e usa *Cash up*. |
+| **Take out the trash** | Aparecem sacos de lixo pela loja e pelo parque. Leva cada um aos **contentores verdes nas traseiras** (sai pela porta do armazém) e usa *Throw away*. |
 
 Só levas **uma coisa de cada vez**: com a esfregona na mão não consegues pegar numa caixa. Larga
 com **G**. Com mais jogadores cada tarefa tem mais unidades de trabalho.
@@ -47,11 +52,12 @@ com **G**. Com mais jogadores cada tarefa tem mais unidades de trabalho.
 Com a janela **Output** aberta (*View → Output*).
 
 ### A. Portas e relógio
-- [ ] Arranque sem linhas vermelhas; `Server ready (build 0.4.1, 10 services, …)`.
+- [ ] Arranque sem linhas vermelhas; `Server ready (build 0.4.3, 10 services, …)`.
 - [ ] As portas abrem e fecham com **E** (*Open* / *Close*).
 - [ ] A saída de emergência (porta vermelha, parede leste) não tem prompt.
 - [ ] Picar o ponto: o relógio começa em `12:00 AM` e avança; aparece a mensagem de início.
-- [ ] O prompt do relógio de ponto desaparece durante o turno.
+- [ ] Durante o turno, o relógio de ponto passa a dizer *Clock out* e termina o turno; o resumo
+      diz `SHIFT ENDED` e a hora a que saíste.
 - [ ] Os tetos já não se atravessam ao saltar.
 
 ### B. Tarefas
@@ -60,7 +66,8 @@ Com a janela **Output** aberta (*View → Output*).
       à tua frente enquanto a levas; ao repor, os produtos reaparecem e a contagem sobe.
 - [ ] Tentar repor sem caixa mostra um aviso.
 - [ ] **Spills:** sem esfregona aparece um aviso; com esfregona a poça desaparece.
-- [ ] **Coolers:** as luzes âmbar veem-se bem; apagam-se ao inspecionar.
+- [ ] **Coolers / Registers:** as luzes âmbar veem-se bem; apagam-se ao inspecionar.
+- [ ] **Trash:** os sacos encontram-se; deitá-los no contentor conta; sem saco aparece um aviso.
 - [ ] Com as mãos ocupadas, tentar pegar noutra coisa mostra "Your hands are full".
 - [ ] **G** larga o objeto no chão à tua frente e podes voltar a pegar nele.
 - [ ] Ao completar uma tarefa aparece `Task complete: … +$…`.
@@ -71,6 +78,7 @@ Com a janela **Output** aberta (*View → Output*).
 - [ ] Ambos veem o mesmo relógio e a mesma lista de tarefas.
 - [ ] O que um faz (porta, prateleira reposta, poça limpa) aparece ao outro.
 - [ ] Dois jogadores não conseguem pegar no mesmo objeto.
+- [ ] *Clock out* de um só jogador não termina o turno; aparece `(1/2)` aos dois.
 
 ### O que quero saber
 1. O relógio de ponto encontra-se bem? Percebe-se o que fazer a seguir?
@@ -94,7 +102,9 @@ Com a janela **Output** aberta (*View → Output*).
 | HUD | `Client/Controllers/HudController`, `ObjectivesController`, `Client/UI/Theme` | Relógio, estado, notificações, lista de objetivos, indicador do que levas, resumo do turno. |
 
 Acrescentar um tipo de tarefa novo é: uma entrada em `TaskDefinitions` e um módulo em `Tasks/`
-com `Begin` e `Cleanup`. O resto (sorteio, progresso, recompensa, HUD) já existe.
+com `Begin` e `Cleanup`. O resto (sorteio, progresso, recompensa, HUD) já existe. Tarefas do
+género "vai ver N coisas" nem precisam de módulo: "Check the coolers" e "Cash up the registers"
+são o mesmo módulo (`Inspect`) com parâmetros diferentes.
 
 ### Limites conhecidos desta versão
 - **O dinheiro ainda não é guardado** nem serve para nada: é só a contagem do turno. A progressão
@@ -103,21 +113,22 @@ com `Begin` e `Cleanup`. O resto (sorteio, progresso, recompensa, HUD) já exist
 - **Não há animações** de pegar, repor ou limpar; o objeto simplesmente aparece à frente do jogador.
 - **As portas movem-se pelo servidor**, o que pode parecer ligeiramente aos solavancos. Passa a ser
   animado no cliente quando houver som e polimento.
-- Faltam tipos de tarefa do design: lixo, carrinhos abandonados, entregas, caixas registadoras,
-  inventário. Usam os mesmos mecanismos e entram a seguir.
+- Faltam tipos de tarefa do design: carrinhos abandonados, entregas, inventário, e as tarefas de
+  manutenção (lâmpadas, frigoríficos avariados, energia), que pertencem ao sistema elétrico da
+  Fase 5.
 
 ---
 
 ## 4. O que eu verifiquei — e o que não verifiquei
 
 **Verificado aqui** (`./scripts/check.sh`):
-- 146 verificações automáticas passam. As novas correm o servidor e o cliente verdadeiros contra o
+- 154 verificações automáticas passam. As novas correm o servidor e o cliente verdadeiros contra o
   **mapa real** num motor simulado: portas, picar o ponto, horas, fim de turno, as três tarefas de
   ponta a ponta, transporte, entrada a meio do turno, cinco jogadores.
 - Tentativas de batota simuladas e recusadas: abrir portas ou repor prateleiras do outro lado do
   mapa, interagir morto ou sem estar na sessão, martelar o mesmo prompt, pegar num objeto que
   outro já leva, repor sem caixa ou com a esfregona, pedir a lista de tarefas em excesso.
-- Sabotei o código novo de 17 maneiras; os testes detetaram as 17.
+- Sabotei o código novo de 22 maneiras; os testes detetaram as 22.
 - Todos os elementos da API do Roblox usados existem nas definições atuais.
 
 **Não verificado — só o Studio pode confirmar:**

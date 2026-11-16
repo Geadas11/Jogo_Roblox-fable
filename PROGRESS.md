@@ -48,15 +48,23 @@ Parte A (build 0.4.0) — sessão e interações
 - [x] `GameManager`: Lobby → Turno → Resultados → Lobby; o turno começa ao picar o ponto
 - [x] `ShiftManager`: relógio das 12 AM às 6 AM, uma hora de cada vez
 - [x] HUD: relógio, estado, notificações, resumo do fim de turno
-- [ ] **Teste no Studio (parte A)**
+- [T] Teste no Studio pelo dono do projeto (portas, picar o ponto, relógio)
 
 Parte B (build 0.4.1) — tarefas
 - [x] `CarryService`: transporte de um objeto de cada vez; largar com G / botão
 - [x] `ToolService`: esfregonas na manutenção
 - [x] `TaskManager` + tarefas: repor prateleiras, limpar derrames, verificar frigoríficos
 - [x] Lista de objetivos e indicador de transporte no HUD; resumo do turno com tarefas e dinheiro
-- [ ] **Teste no Studio (partes A e B)** — lista em `docs/04-jogabilidade.md`, secção 2
-- [ ] Mais tipos de tarefa (lixo, carrinhos, entregas, caixas, inventário)
+- [T] Teste no Studio pelo dono do projeto: turno a solo, tarefas e transporte aprovados; teto confirmado
+
+Parte C (build 0.4.3) — seguimento do teste
+- [x] Terminar o turno mais cedo no relógio de ponto (*Clock out*; em equipa, por voto unânime) — pedido no teste: "não sei onde acabar o turno"
+- [x] O HUD e a mensagem de início dizem que o turno acaba às 6 AM; o resumo mostra a hora real de saída
+- [x] Tarefas novas: levar o lixo aos contentores, fechar as caixas registadoras
+- [x] Tarefas "ir ver N coisas" passam a ser configuração (`Inspect` + `Params`)
+- [ ] **Teste no Studio (parte C)**: Clock out · as duas tarefas novas
+- [ ] **Teste no Studio com dois jogadores** (nunca confirmado)
+- [ ] Tarefas ainda em falta: carrinhos abandonados, entregas, inventário (as de manutenção vêm com a Fase 5)
 
 ## Fase 5 — Terror
 - [ ] PowerManager · LightingController

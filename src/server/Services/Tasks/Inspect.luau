@@ -1,21 +1,24 @@
 --!strict
--- Check the coolers: a few refrigeration units show an amber warning light and need
--- to be looked at.
+-- Go and look at a few things: the chosen objects show an amber warning light until a
+-- player has been to each one. Which objects, and what the prompt says, come from the
+-- task type's Params in Config.TaskDefinitions:
+--   Tag     CollectionService tag of the candidates
+--   Action  prompt verb ("Inspect", "Cash up")
+--   Object  prompt noun ("Cooler", "Register")
+--   Hold    seconds the key is held
+--   Detail  hint shown under the task title
 
 local CollectionService = game:GetService("CollectionService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Shared = ReplicatedStorage.Shared
-local Tags = require(Shared.Config.Tags)
 local Services = script.Parent.Parent
 local InteractionService = require(Services.InteractionService)
 
-local InspectCoolers = {}
+local Inspect = {}
 
 -- Units currently waiting for an inspection, across all tasks.
 local flagged: { [Instance]: boolean } = {}
 
--- The part a prompt can hang on: the unit itself, or its Anchor.
+-- The part a prompt can hang on: the object itself, or its Anchor.
 local function anchorOf(unit: Instance): BasePart?
 	if unit:IsA("BasePart") then
 		return unit
@@ -42,9 +45,10 @@ local function createWarningLight(anchor: BasePart): BasePart
 	return light
 end
 
-function InspectCoolers.Begin(task: any, count: number, context: any): number
+function Inspect.Begin(task: any, count: number, context: any): number
+	local params = context.Params
 	local available = {}
-	for _, unit in CollectionService:GetTagged(Tags.FridgeUnit) do
+	for _, unit in CollectionService:GetTagged(params.Tag) do
 		if not flagged[unit] and anchorOf(unit) then
 			table.insert(available, unit)
 		end
@@ -61,9 +65,9 @@ function InspectCoolers.Begin(task: any, count: number, context: any): number
 		local light = createWarningLight(anchor)
 		local prompt
 		prompt = InteractionService.AddPrompt(anchor, {
-			action = "Inspect",
-			object = "Cooler",
-			hold = 1.5,
+			action = params.Action,
+			object = params.Object,
+			hold = params.Hold,
 		}, function(player: Player)
 			if not state.Units[unit] then
 				return
@@ -77,11 +81,11 @@ function InspectCoolers.Begin(task: any, count: number, context: any): number
 		state.Units[unit] = { Light = light, Prompt = prompt }
 	end
 
-	task.Detail = "Look for the amber warning lights."
+	task.Detail = params.Detail
 	return goal
 end
 
-function InspectCoolers.Cleanup(task: any)
+function Inspect.Cleanup(task: any)
 	local state = task.State
 	if not state then
 		return
@@ -94,4 +98,4 @@ function InspectCoolers.Cleanup(task: any)
 	task.State = nil
 end
 
-return InspectCoolers
+return Inspect

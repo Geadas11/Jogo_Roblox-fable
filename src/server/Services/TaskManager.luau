@@ -5,7 +5,9 @@
 -- Each type lives in its own module under Tasks/ with two functions:
 --   Begin(task, units, context) -> goal   set the work up in the world; return how many
 --                                         units were actually created
---   Cleanup(task)                         remove whatever is left
+--   Cleanup(task)                         remove whatever is left (called when the task
+--                                         is completed and when the shift ends)
+-- Several types can share one module and differ only in their Params.
 -- A type reports progress through context.Progress; it never touches scores itself.
 --
 -- The objectives list is sent to clients whole on every change, and on request.
@@ -102,6 +104,26 @@ local function isActive(typeName: string): boolean
 	return false
 end
 
+-- Asks a task's module to remove what it put in the world.
+local function cleanupTask(task: Task)
+	if task.State == nil then
+		return
+	end
+	local module = modules[TaskDefinitions.Types[task.Type].Module]
+	local ok, message = xpcall(module.Cleanup, debug.traceback, task)
+	if not ok then
+		log:Warn("%s.Cleanup failed: %s", task.Type, tostring(message))
+	end
+	task.State = nil
+end
+
+-- Removes every unfinished task from the world. Scores are kept for the results screen.
+local function cleanupWorld()
+	for _, task in tasks do
+		cleanupTask(task)
+	end
+end
+
 local function progress(task: Task, amount: number)
 	if task.Completed or amount <= 0 then
 		return
@@ -117,6 +139,7 @@ local function progress(task: Task, amount: number)
 			string.format("Task complete: %s  +$%d", task.Title, task.Reward),
 			"Info"
 		)
+		cleanupTask(task)
 		TaskManager.TaskCompleted:Fire(publicTask(task), task.Reward)
 	end
 	broadcast()
@@ -126,7 +149,7 @@ end
 -- right now (for example every shelf is already being restocked).
 function TaskManager.Issue(typeName: string, units: number): boolean
 	local definition = TaskDefinitions.Types[typeName]
-	local module = modules[typeName]
+	local module = if definition then modules[definition.Module] else nil
 	if not definition or not module then
 		log:Warn("Unknown task type %s", typeName)
 		return false
@@ -145,6 +168,7 @@ function TaskManager.Issue(typeName: string, units: number): boolean
 	}
 	local context = {
 		Rng = rng,
+		Params = definition.Params or {},
 		Progress = function(amount: number, _player: Player?)
 			progress(task, amount)
 		end,
@@ -174,7 +198,7 @@ end
 local function issueForHour()
 	local candidates = {}
 	for typeName in TaskDefinitions.Types do
-		if modules[typeName] and not isActive(typeName) then
+		if not isActive(typeName) then
 			table.insert(candidates, typeName)
 		end
 	end
@@ -205,31 +229,19 @@ local function issueForHour()
 	end
 end
 
--- Removes every unfinished task from the world. Scores are kept for the results screen.
-local function cleanupWorld()
-	for _, task in tasks do
-		if task.State ~= nil then
-			local module = modules[task.Type]
-			local ok, message = xpcall(module.Cleanup, debug.traceback, task)
-			if not ok then
-				log:Warn("%s.Cleanup failed: %s", task.Type, tostring(message))
-			end
-		end
-	end
-end
-
 function TaskManager.Init()
 	for _, child in script.Parent.Tasks:GetChildren() do
 		if child:IsA("ModuleScript") then
 			modules[child.Name] = (require :: any)(child)
 		end
 	end
-	for typeName in TaskDefinitions.Types do
-		if not modules[typeName] then
+	for typeName, definition in TaskDefinitions.Types do
+		if not modules[definition.Module] then
 			error(
 				string.format(
-					"Task type %q is defined in TaskDefinitions but has no module in Tasks/",
-					typeName
+					"Task type %q needs Tasks/%s, which does not exist",
+					typeName,
+					definition.Module
 				),
 				0
 			)

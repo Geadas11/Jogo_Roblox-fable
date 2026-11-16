@@ -244,8 +244,10 @@ return function(k, root)
 	-- Task positions -------------------------------------------------------------------------
 	local tasks = k:folder(markers, "TaskPoints")
 	local function taskPoints(tag, zone, points)
+		-- Half a stud above the floor; outdoor ground is 0.2 lower than the shop floor.
+		local y = if zone == "ParkingLot" then 0.3 else 0.5
 		for _, point in points do
-			k:marker(tasks, tag, point[1], 0.5, point[2], tag, { Zone = zone })
+			k:marker(tasks, tag, point[1], y, point[2], tag, { Zone = zone })
 		end
 	end
 	local spills = {}

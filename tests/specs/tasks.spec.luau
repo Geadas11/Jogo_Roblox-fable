@@ -454,3 +454,102 @@ test("asking for the objectives too often is refused", function()
 	expect.truthy(refused >= 15, "refused " .. refused .. " of 20")
 	expect.equal(world.invokeServerAs(player, "GetTasks", "unexpected"), false)
 end)
+
+-- More kinds of work ---------------------------------------------------------------------
+
+test("registers are cashed up one by one", function()
+	local world, _, taskManager = boot()
+	local player = join(world, "Tester", 1)
+	expect.truthy(taskManager.Issue("CloseRegisters", 2))
+
+	local flagged = {}
+	for _, register in tagged(world, "CheckoutRegister") do
+		if register:FindFirstChild("WarningLight") then
+			table.insert(flagged, register)
+		end
+	end
+	expect.equal(#flagged, 2)
+	expect.equal(promptOf(flagged[1]).ActionText, "Cash up")
+	expect.equal(taskManager.GetSnapshot()[1].Title, "Cash up the registers")
+
+	use(world, player, flagged[1])
+	use(world, player, flagged[2])
+	expect.truthy(taskManager.GetSnapshot()[1].Completed)
+	expect.equal(flagged[2]:FindFirstChild("WarningLight"), nil)
+	expect.equal(promptOf(flagged[2]), nil)
+end)
+
+test("coolers and registers can be checked in the same hour without clashing", function()
+	local world, _, taskManager = boot()
+	expect.truthy(taskManager.Issue("InspectCoolers", 3))
+	expect.truthy(taskManager.Issue("CloseRegisters", 4))
+	local coolers, registers = 0, 0
+	for _, unit in tagged(world, "FridgeUnit") do
+		local anchor = if unit:IsA("BasePart") then unit else unit:FindFirstChild("Anchor")
+		if anchor and anchor:FindFirstChild("WarningLight") then
+			coolers += 1
+		end
+	end
+	for _, register in tagged(world, "CheckoutRegister") do
+		if register:FindFirstChild("WarningLight") then
+			registers += 1
+		end
+	end
+	expect.equal(coolers, 3)
+	expect.equal(registers, 4)
+end)
+
+test("trash bags are carried to the dumpsters behind the store", function()
+	local world, _, taskManager = boot()
+	local player = join(world, "Tester", 1)
+	expect.truthy(taskManager.Issue("CollectTrash", 2))
+	-- One trash run at a time.
+	expect.falsy(taskManager.Issue("CollectTrash", 2))
+
+	local bags = named(world, "TrashBag")
+	local dumpsters = tagged(world, "Dumpster")
+	expect.equal(#bags, 2)
+	expect.equal(#dumpsters, 2)
+	for _, dumpster in dumpsters do
+		expect.truthy(dumpster.Position.Z < -80, "dumpsters are outside, behind the building")
+		expect.equal(promptOf(dumpster).ActionText, "Throw away")
+	end
+
+	-- Empty-handed at the dumpster.
+	use(world, player, dumpsters[1])
+	expect.equal(taskManager.GetSnapshot()[1].Progress, 0)
+	expect.truthy(string.find(lastNotification(player), "not carrying a trash bag", 1, true))
+
+	use(world, player, bags[1])
+	expect.equal(player:GetAttribute("Carrying"), "Trash")
+	expect.equal(player.PlayerGui.HUD.Carrying.Label.Text, "Carrying: Trash bag")
+	use(world, player, dumpsters[1])
+	expect.equal(bags[1].Parent, nil)
+	expect.equal(taskManager.GetSnapshot()[1].Progress, 1)
+
+	use(world, player, bags[2])
+	use(world, player, dumpsters[2])
+	expect.truthy(taskManager.GetSnapshot()[1].Completed)
+	-- The work is done: the dumpsters stop offering the action.
+	for _, dumpster in dumpsters do
+		expect.equal(promptOf(dumpster), nil)
+	end
+	-- And another run can be handed out later.
+	expect.truthy(taskManager.Issue("CollectTrash", 1))
+end)
+
+test("every task type in the catalogue can actually be issued on this map", function()
+	local world, server, taskManager = boot()
+	local definitions = server.load("ReplicatedStorage.Shared.Config.TaskDefinitions")
+	local count = 0
+	for typeName, definition in definitions.Types do
+		count += 1
+		expect.truthy(taskManager.Issue(typeName, definition.Max), typeName .. " could not be issued")
+	end
+	expect.equal(#taskManager.GetSnapshot(), count)
+	for _, task in taskManager.GetSnapshot() do
+		expect.truthy(task.Goal > 0, task.Title)
+		expect.truthy(task.Detail ~= "", task.Title .. " has no hint")
+	end
+	expect.equal(#world.lines("warn"), 0, "warnings: " .. table.concat(world.lines("warn"), " | "))
+end)

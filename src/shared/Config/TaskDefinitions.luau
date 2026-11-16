@@ -6,6 +6,9 @@
 local deepFreeze = require(script.Parent.Parent.Util.DeepFreeze)
 
 export type TaskType = {
+	-- Module under Server.Services.Tasks that sets this work up in the world. Several
+	-- types can share one module and differ only in Params.
+	Module: string,
 	-- Shown in the objectives list.
 	Title: string,
 	-- Money earned per unit of work (per shelf, per spill...).
@@ -15,12 +18,65 @@ export type TaskType = {
 	Max: number,
 	-- Relative chance of being picked.
 	Weight: number,
+	-- Settings read by the module.
+	Params: { [string]: any }?,
 }
 
 local Types: { [string]: TaskType } = {
-	Restock = { Title = "Restock shelves", RewardPerUnit = 30, Min = 2, Max = 4, Weight = 3 },
-	CleanSpills = { Title = "Clean up spills", RewardPerUnit = 20, Min = 2, Max = 3, Weight = 3 },
-	InspectCoolers = { Title = "Check the coolers", RewardPerUnit = 15, Min = 3, Max = 5, Weight = 2 },
+	Restock = {
+		Module = "Restock",
+		Title = "Restock shelves",
+		RewardPerUnit = 30,
+		Min = 2,
+		Max = 4,
+		Weight = 3,
+	},
+	CleanSpills = {
+		Module = "CleanSpills",
+		Title = "Clean up spills",
+		RewardPerUnit = 20,
+		Min = 2,
+		Max = 3,
+		Weight = 3,
+	},
+	CollectTrash = {
+		Module = "CollectTrash",
+		Title = "Take out the trash",
+		RewardPerUnit = 25,
+		Min = 2,
+		Max = 4,
+		Weight = 2,
+	},
+	InspectCoolers = {
+		Module = "Inspect",
+		Title = "Check the coolers",
+		RewardPerUnit = 15,
+		Min = 3,
+		Max = 5,
+		Weight = 2,
+		Params = {
+			Tag = "FridgeUnit",
+			Action = "Inspect",
+			Object = "Cooler",
+			Hold = 1.5,
+			Detail = "Look for the amber warning lights.",
+		},
+	},
+	CloseRegisters = {
+		Module = "Inspect",
+		Title = "Cash up the registers",
+		RewardPerUnit = 20,
+		Min = 2,
+		Max = 4,
+		Weight = 2,
+		Params = {
+			Tag = "CheckoutRegister",
+			Action = "Cash up",
+			Object = "Register",
+			Hold = 3,
+			Detail = "Count the tills at the checkout.",
+		},
+	},
 }
 
 return deepFreeze({
