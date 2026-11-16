@@ -6,15 +6,23 @@ Nada é marcado `[T]` sem confirmação de teste real.
 
 ## Fase 1 — Pré-produção
 - [x] Análise técnica, roadmap, hierarquia, assets, plugins, dependências, limitações → `docs/01-pre-producao.md`
-- [ ] Aprovação das decisões (fluxo Rojo, 1ª pessoa, língua, dono da experiência, regras da secção 1.4)
+- [x] Decisões aprovadas: fluxo Rojo · 1ª pessoa fixa · jogo em inglês · experiência num grupo
+- [ ] Regras da secção 1.4 (morte, entrada tardia, dificuldade, final alternativo) — propostas, por confirmar
 
-## Fase 2 — Setup
-- [ ] Projeto Rojo e estrutura de pastas
-- [ ] Config, Types, Util
-- [ ] Net (remotes + validação + limite de frequência)
-- [ ] Bootstrap servidor / cliente
-- [ ] Grupos de colisão
-- [ ] Perfil base de Lighting
+## Fase 2 — Setup (build 0.2.0)
+Verificado fora do Studio com `./scripts/check.sh` (compilação, build Rojo, 75 testes em motor simulado).
+**Falta o teste no Studio** — lista em `docs/02-setup.md`, secção 3.
+- [x] Projeto Rojo e estrutura de pastas
+- [x] Config (`GameConfig`, `CollisionGroups`, `LightingConfig`) e Util (`Loader`, `Log`, `Signal`, `Trove`, `DeepFreeze`)
+- [x] Net: catálogo de remotes, validação de argumentos, limite de frequência por jogador
+- [x] SessionState (estado replicado por Attributes)
+- [x] Bootstrap servidor / cliente com ordem de arranque explícita
+- [x] Grupos de colisão (`CollisionService`) aplicados às personagens (`PlayerManager`)
+- [x] Perfil base de Lighting (`EnvironmentService`) — valores por afinar na Fase 3
+- [x] Câmara em 1ª pessoa (`CameraController`)
+- [x] Testes automáticos e script de verificação
+- [ ] Análise de tipos Luau (analisador não instalado neste ambiente)
+- [ ] **Teste no Studio: A arranque · B dois jogadores · C segurança · D definições do place**
 
 ## Fase 3 — Ambiente
 - [ ] Gerador de greybox

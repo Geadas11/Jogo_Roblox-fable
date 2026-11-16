@@ -1,7 +1,8 @@
 # NIGHT SHIFT: SUPERMARKET — Pré-produção (Fase 1)
 
-Estado: **para aprovação**. Ainda não existe código de jogo. Este documento fecha as decisões
-de arquitetura antes de se escrever a primeira linha de Luau.
+Estado: **aprovado.** Decisões fechadas: fluxo com Rojo; primeira pessoa fixa; texto e UI em
+inglês; experiência publicada num grupo (animações e áudio têm de ser carregados com o grupo
+como criador). As regras da secção 1.4 ficam como propostas até indicação em contrário.
 
 Índice: [1. Análise técnica](#1-análise-técnica) · [2. Roadmap](#2-roadmap) ·
 [3. Hierarquia do Explorer](#3-hierarquia-do-explorer) · [4. Assets](#4-assets-necessários) ·
@@ -118,9 +119,11 @@ ReplicatedStorage
 │   │   ├── ProgressionConfig      curva de XP, patentes, desbloqueios
 │   │   ├── AudioConfig            slots de som → asset ID (preenchidos por ti)
 │   │   └── AnimationConfig        slots de animação → asset ID (preenchidos por ti)
-│   ├── Net                        definição e acesso tipado aos remotes
-│   ├── Types                      tipos Luau partilhados
-│   └── Util                       Signal, Trove (limpeza), Table, Math, Rng
+│   ├── Net
+│   │   ├── Definitions            catálogo de todos os remotes
+│   │   └── Check                  validadores de argumentos
+│   ├── SessionState               estado da sessão (Attributes em ReplicatedStorage.State)
+│   └── Util                       Loader, Log, Signal, Trove, DeepFreeze (+ o que for preciso)
 ├── Remotes                        criados pelo servidor no arranque
 │   ├── Events
 │   └── Functions
@@ -131,7 +134,10 @@ ReplicatedStorage
 ServerScriptService
 └── Server                         [Rojo]  src/server
     ├── Main (Script)              único ponto de entrada
+    ├── Net (+ Gate, RateLimiter)  cria os remotes; valida e limita pedidos dos clientes
     └── Services
+        ├── CollisionService       grupos de colisão
+        ├── EnvironmentService     iluminação base; verificação de definições do place
         ├── GameManager            lobby ↔ turno ↔ resultados
         ├── ShiftManager           relógio, transições de hora
         ├── PlayerManager          estado por jogador, spawn, morte, espectador
@@ -155,6 +161,7 @@ StarterPlayer
 ├── StarterPlayerScripts
 │   └── Client                     [Rojo]  src/client
 │       ├── Main (LocalScript)
+│       ├── Net                        acesso do cliente aos remotes
 │       ├── Controllers
 │       │   ├── CameraController       1ª pessoa, abanão, esconderijo
 │       │   ├── InteractionController
@@ -186,7 +193,10 @@ Workspace                          [Studio]
 
 Acrescentei em relação à tua sugestão: `ElectricalRoom` (a fase das 4:00 precisa de um destino
 físico), `NoiseService`, `HidingService`, `InteractionService`, `ProgressionService`,
-`LightingController` e a pasta `State`.
+`CollisionService`, `EnvironmentService`, `LightingController` e a pasta `State`.
+
+Os tipos Luau ficam junto do módulo que os define, em vez de num módulo `Types` central. A parte
+do `Net` que valida pedidos vive no servidor, para não ser replicada para os clientes.
 
 ---
 
@@ -311,7 +321,7 @@ O monstro vem depois da energia, do ruído e dos esconderijos porque a IA consom
 | **"Mover objetos quando ninguém olha".** | Com 1ª pessoa, o servidor estima o campo de visão pela orientação da cabeça + raycast. É só cosmético, por isso a imprecisão é aceitável. |
 | **Pathfinding falha ou encrava** (portas, cantos apertados). | `PathfindingModifier` nas portas, recálculo limitado no tempo, deteção de bloqueio com replaneamento, e recurso a nós de patrulha. O monstro nunca se teletransporta para perto de jogadores. |
 | **Luzes com sombra são caras**, sobretudo em telemóvel. | Tubos fluorescentes como Parts `Neon` + poucas `SurfaceLight` por zona; sombras só em luzes-chave; níveis de qualidade reduzem luzes ativas. Tremeluzir corre no cliente com semente do servidor. |
-| **Propriedades de iluminação em mudança.** O Roblox tem vindo a substituir `Lighting.Technology` por um modelo unificado. | Confirmo na documentação atual na Fase 2 e peço-te para verificares o que o teu Studio mostra, em vez de assumir `Future`. |
+| **`Lighting.Technology` foi substituído** por `LightingStyle` + `PrioritizeLightingQuality`. | Confirmado na Fase 2: o antigo `Future` equivale a `Realistic` + qualidade prioritária. É isso que o perfil base pede; se o Studio não deixar escrever por script, define-se à mão (ver `02-setup.md`). |
 | **Privacidade de áudio e posse de animações.** | Slots em `AudioConfig`/`AnimationConfig`; slot vazio = sistema continua a funcionar em silêncio/sem animação, com aviso no Output. |
 | **Oclusão de áudio** não é automática nos `Sound` clássicos. | Raycast entre ouvinte e monstro → filtro passa-baixo. Avaliar a nova API de áudio na Fase 6. |
 | **DataStore não funciona em Studio** sem "Enable Studio Access to API Services", nem em places não publicados. | Instruções na Fase 7; modo simulado em memória para desenvolvimento. |
@@ -324,19 +334,5 @@ O monstro vem depois da energia, do ruído e dos esconderijos porque a IA consom
 
 ## 9. Como começar
 
-### Para fechar a Fase 1 — preciso de quatro respostas
-1. **Rojo:** aceitas este fluxo de trabalho (instalar o plugin e correr um comando)? A alternativa é
-   eu entregar scripts para colares à mão, o que é muito mais lento e sujeito a erros.
-2. **Primeira pessoa fixa:** de acordo?
-3. **Língua do jogo:** texto e UI em inglês (maior audiência), português, ou ambos?
-4. **Dono da experiência:** conta pessoal ou grupo? Determina quem tem de carregar animações e áudio.
-
-Se discordares de alguma regra da secção 1.4, é agora a altura mais barata para mudar.
-
-### Do teu lado, entretanto
-- Instalar o Roblox Studio (se ainda não tiveres) e criar um place vazio (template *Baseplate*).
-- Instalar o Rojo: plugin a partir da Creator Store (autor: Rojo) e o executável a partir de rojo.space.
-
-### A seguir (Fase 2), do meu lado
-Projeto Rojo, estrutura de pastas, `Config`, `Net`, bootstrap de servidor e cliente, grupos de
-colisão e perfil base de iluminação — com instruções de ligação e uma checklist de verificação.
+A Fase 1 está fechada. A Fase 2 está implementada: instruções de ligação e lista de verificação
+em [`02-setup.md`](02-setup.md).
