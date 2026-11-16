@@ -11,7 +11,7 @@ Nada é marcado `[T]` sem confirmação de teste real.
 
 ## Fase 2 — Setup (build 0.2.0)
 Verificado fora do Studio com `./scripts/check.sh` (compilação, build Rojo, 75 testes em motor simulado).
-**Falta o teste no Studio** — lista em `docs/02-setup.md`, secção 3.
+**Falta o teste no Studio** — lista em `docs/02-setup.md`, secção 4.
 - [x] Projeto Rojo e estrutura de pastas
 - [x] Config (`GameConfig`, `CollisionGroups`, `LightingConfig`) e Util (`Loader`, `Log`, `Signal`, `Trove`, `DeepFreeze`)
 - [x] Net: catálogo de remotes, validação de argumentos, limite de frequência por jogador

@@ -10,6 +10,7 @@ stylua --check src tests
 echo "== Project builds (rojo)"
 mkdir -p build
 rojo build default.project.json --output build/NightShiftSupermarket.rbxl
+rojo build preview.project.json --output build/NightShiftSupermarket-preview.rbxl
 
 echo "== Tests (lune)"
 lune run tests/run

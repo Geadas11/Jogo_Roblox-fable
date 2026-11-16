@@ -61,9 +61,29 @@ Nada é gravado no ficheiro do place.
 
 ---
 
-## 2. Ligar o Studio ao repositório
+## 2. Ver o estado atual sem instalar nada
 
-Faz isto uma vez.
+Para uma primeira olhadela não precisas do Rojo. Eu envio-te um ficheiro
+`NightShiftSupermarket-preview-<versão>.rbxl` já com todo o código lá dentro, um chão e um ponto
+de spawn.
+
+1. Abre o ficheiro no Roblox Studio (duplo clique, ou *File → Open from File*).
+2. *View → Output*.
+3. Carrega em **Play** (F5) e segue a lista da secção 4.
+
+Este ficheiro é só para ver e testar. O place a sério (onde o mapa vai ser construído e que
+publicas no grupo) é o da secção seguinte. Qualquer pessoa com as ferramentas instaladas pode
+gerar o ficheiro com:
+
+```bash
+rojo build preview.project.json --output NightShiftSupermarket-preview.rbxl
+```
+
+---
+
+## 3. Ligar o Studio ao repositório
+
+Faz isto uma vez, quando quiseres começar a trabalhar no place definitivo.
 
 1. **Obter o repositório no teu computador.** Com o GitHub Desktop: *Clone repository* →
    `Geadas11/Jogo_Roblox-fable` → muda para o ramo `claude/new-session-w2u9nq`.
@@ -94,7 +114,7 @@ Sempre que eu entregar código novo: atualizas o repositório (GitHub Desktop �
 
 ---
 
-## 3. Lista de verificação (é isto que fecha a Fase 2)
+## 4. Lista de verificação (é isto que fecha a Fase 2)
 
 Abre a janela **Output** (*View → Output*).
 
@@ -139,13 +159,13 @@ for i = 1, 50 do game.ReplicatedStorage.Remotes.Events.ClientReady:FireServer() 
 
 ### D. Definições do place
 - [ ] *Game Settings → Places*: máximo de **6** jogadores (o nome exato do menu pode variar; só
-      fica disponível depois de publicado).
+      fica disponível depois de publicado, por isso não se aplica ao ficheiro de pré-visualização).
 
 Quando me disseres o resultado de A–D, marco a fase como testada e avanço para a Fase 3.
 
 ---
 
-## 4. O que eu verifiquei — e o que não verifiquei
+## 5. O que eu verifiquei — e o que não verifiquei
 
 **Verificado aqui, fora do Studio** (`./scripts/check.sh`):
 - Os 21 ficheiros compilam; o projeto Rojo constrói um `.rbxl` válido.
@@ -167,7 +187,7 @@ Quando me disseres o resultado de A–D, marco a fase como testada e avanço par
 
 ---
 
-## 5. Nota sobre o grupo
+## 6. Nota sobre o grupo
 
 Como a experiência vai ser publicada no grupo:
 - Animações e áudio têm de ser carregados **com o grupo como criador**, senão não tocam. Volto a
