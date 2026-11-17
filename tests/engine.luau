@@ -69,17 +69,27 @@ local NULLABLE = { Character = true, LocalPlayer = true, OnServerInvoke = true, 
 -- The real generated map, built once per process and mirrored into each world that asks
 -- for it. Game code then runs against the same tags and attributes it will find in Studio.
 local builtMap = nil
+local builtGrids = nil
 local function getBuiltMap()
 	if not builtMap then
 		local Map = require("../map/Map")
+		local Layout = require("../map/Layout")
+		local Grids = require("../tools/grids")
 		local scratch = roblox.Instance.new("DataModel")
-		local _, root = Map.build(scratch:GetService("Workspace"))
+		local kit, root = Map.build(scratch:GetService("Workspace"))
 		builtMap = root
+		builtGrids = Grids.compute(kit.records, Layout.Grounds)
 	end
-	return builtMap
+	return builtMap, builtGrids
 end
 
 local Engine = {}
+
+-- The navigation and sight grids of the generated map, as the build bakes them.
+function Engine.grids()
+	local _, grids = getBuiltMap()
+	return grids
+end
 
 -- Fake RBXScriptSignal --------------------------------------------------------------
 
@@ -589,7 +599,21 @@ function Engine.new(options)
 				mirror(child, copy)
 			end
 		end
-		mirror(getBuiltMap(), workspaceService)
+		local map, grids = getBuiltMap()
+		mirror(map, workspaceService)
+
+		-- The baked grids live in ServerStorage, exactly as tools/build.luau stores them.
+		local storage = getService("ServerStorage")
+		local holder = newInstance("StringValue", "NavGrid")
+		holder.Value = grids.Walk
+		rawget(holder, "_attributes").OriginX = grids.OriginX
+		rawget(holder, "_attributes").OriginZ = grids.OriginZ
+		rawget(holder, "_attributes").Width = grids.Width
+		rawget(holder, "_attributes").Depth = grids.Depth
+		setParent(holder, storage)
+		local sightHolder = newInstance("StringValue", "SightGrid")
+		sightHolder.Value = grids.Sight
+		setParent(sightHolder, storage)
 	end
 
 	world.newInstance = newInstance

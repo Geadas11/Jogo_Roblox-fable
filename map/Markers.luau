@@ -176,7 +176,7 @@ return function(k, root)
 			table.insert(shopNodes, { x, z })
 		end
 	end
-	for _, point in { { 64, -22 }, { 64, 11 }, { 64, 46 }, { 86, -22 }, { 86, 11 }, { 86, 46 } } do
+	for _, point in { { 64, -22 }, { 64, 11 }, { 64, 43 }, { 86, -22 }, { 86, 11 }, { 86, 43 } } do
 		table.insert(shopNodes, point)
 	end
 	for _, point in { { -50, 70 }, { -20, 70 }, { 20, 72 }, { 60, 68 }, { 90, 74 }, { -36, 58 }, { -8, 58 } } do
