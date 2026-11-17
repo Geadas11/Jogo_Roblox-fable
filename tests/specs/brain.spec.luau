@@ -139,6 +139,7 @@ test("a player behind shelving or behind its back is not seen", function()
 	face(other, -23, 40) -- looking south
 	otherState.targets = { player(1, -23, 0) } -- behind it, 20 studs away
 	other:Step(DT)
+	expect.equal(other:AwarenessOf(1), 0, "noticed someone behind itself")
 	expect.truthy(other.State ~= "Chase", "saw behind itself")
 end)
 
@@ -149,8 +150,10 @@ test("a hidden player is not seen, even right next to it", function()
 	hidden.Hidden = true
 	hidden.Spot = 1
 	state.targets = { hidden }
-	run(brain, 3)
-	expect.truthy(brain.State ~= "Chase")
+	local everChased = run(brain, 3, function()
+		return brain.State == "Chase" or brain:AwarenessOf(1) > 0
+	end)
+	expect.falsy(everChased, "noticed a hidden player")
 	expect.equal(#state.caught, 0)
 end)
 

@@ -112,3 +112,28 @@ test("line of sight: shelving and walls block it, an open aisle and glass do not
 	-- Across the building, through its west wall.
 	expect.falsy(grid:CanSee(-113, 0, -85, 0))
 end)
+
+test("a line squeezing diagonally between two blocked cells is blocked", function()
+	-- 3 x 3 grid with cells (1, 0) and (0, 1) blocked: a gap only at their shared corner.
+	--   . # .
+	--   # . .
+	--   . . .
+	-- Bits 1 and 3 of the first six cells are set: 2 + 8 = 10 -> character 48 + 10.
+	local tiny = NavGrid.new({
+		OriginX = 0,
+		OriginZ = 0,
+		Width = 3,
+		Depth = 3,
+		Walk = string.char(48 + 10) .. "0",
+		Sight = string.char(48 + 10) .. "0",
+	})
+	expect.falsy(tiny:IsWalkable(1.5, 0.5))
+	expect.falsy(tiny:IsWalkable(0.5, 1.5))
+	expect.truthy(tiny:IsWalkable(0.5, 0.5))
+	expect.truthy(tiny:IsWalkable(1.5, 1.5))
+	expect.falsy(tiny:CanWalkLine(0.5, 0.5, 1.5, 1.5), "slipped through the corner")
+	expect.falsy(tiny:CanSee(0.5, 0.5, 2.5, 2.5), "saw through the corner")
+	expect.truthy(tiny:CanWalkLine(1.5, 1.5, 2.5, 2.5))
+	-- And no route: the corner is the only way out of the top-left cell.
+	expect.equal(tiny:FindPath(0.5, 0.5, 2.5, 2.5), nil)
+end)

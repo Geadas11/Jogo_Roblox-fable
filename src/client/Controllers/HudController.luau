@@ -90,7 +90,7 @@ local function build(): ScreenGui
 	})
 	resultsBody = Theme.label({
 		Name = "Body",
-		Size = UDim2.new(1, 0, 0, 170),
+		Size = UDim2.new(1, 0, 0, 230),
 		TextSize = 18,
 		TextColor3 = Theme.Colors.TextDim,
 		Text = "",
@@ -100,7 +100,7 @@ local function build(): ScreenGui
 		Name = "Results",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.new(0.5, 0, 0.45, 0),
-		Size = UDim2.new(0, 440, 0, 260),
+		Size = UDim2.new(0, 440, 0, 320),
 		Visible = false,
 	}, {
 		Theme.create("UIListLayout", {
@@ -188,16 +188,19 @@ local function showResults(results: any)
 	end
 	local seconds = tonumber(results.DurationSeconds) or 0
 	resultsTitle.Text = if results.Completed then "SHIFT COMPLETE" else "SHIFT ENDED"
+	local reason = tostring(results.Reason or "")
 	resultsTitle.TextColor3 = if results.Completed then Theme.Colors.Good else Theme.Colors.Accent
 	resultsBody.Text = string.format(
-		"Clocked out at %s\nHours worked: %d\nTime on shift: %d:%02d\nTasks completed: %d of %d\nEarned: $%d\n\nReturning to the employee room...",
+		"%sClocked out at %s\nHours worked: %d\nTime on shift: %d:%02d\nTasks completed: %d of %d\nEarned: $%d\nCaught: %d\n\nReturning to the employee room...",
+		if reason ~= "" then reason .. "\n\n" else "",
 		tostring(results.ClockOutTime or ""),
 		tonumber(results.HoursWorked) or 0,
 		seconds // 60,
 		seconds % 60,
 		tonumber(results.TasksCompleted) or 0,
 		tonumber(results.TasksTotal) or 0,
-		tonumber(results.Earnings) or 0
+		tonumber(results.Earnings) or 0,
+		tonumber(results.Deaths) or 0
 	)
 	clockLabel.Text = tostring(results.ClockOutTime or "")
 	resultsPanel.Visible = true

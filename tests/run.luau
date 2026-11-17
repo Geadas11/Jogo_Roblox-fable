@@ -1,7 +1,8 @@
 --[[
 	Test runner. From the repository root:
 
-		lune run tests/run
+		lune run tests/run              every spec
+		lune run tests/run brain hunt   only tests/specs/brain.spec.luau and hunt.spec.luau
 
 	1. Compiles every .luau file under src/ (catches syntax errors).
 	2. Runs every tests/specs/*.spec.luau against the fake engine in tests/engine.luau.
@@ -130,7 +131,10 @@ end
 local specDirectory = "tests/specs"
 local specs = {}
 for _, entry in fs.readDir(specDirectory) do
-	if string.match(entry, "%.spec%.luau$") then
+	-- Optional filter: `lune run tests/run brain hunt` runs only those spec files.
+	local name = string.gsub(entry, "%.spec%.luau$", "")
+	local wanted = #process.args == 0 or table.find(process.args, name) ~= nil
+	if string.match(entry, "%.spec%.luau$") and wanted then
 		table.insert(specs, entry)
 	end
 end

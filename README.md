@@ -5,7 +5,8 @@ O código vive neste repositório e é sincronizado para o Roblox Studio com o [
 
 - **Estado do projeto:** [`PROGRESS.md`](PROGRESS.md)
 - **Plano e decisões:** [`docs/01-pre-producao.md`](docs/01-pre-producao.md)
-- **Fase atual — como jogar e o que testar:** [`docs/04-jogabilidade.md`](docs/04-jogabilidade.md)
+- **Fase atual — o monstro, como testar:** [`docs/05-terror.md`](docs/05-terror.md)
+- **Como jogar (tarefas, turno):** [`docs/04-jogabilidade.md`](docs/04-jogabilidade.md)
 - **O mapa:** [`docs/03-ambiente.md`](docs/03-ambiente.md)
 - **Fundação do código e ligação por Rojo:** [`docs/02-setup.md`](docs/02-setup.md)
 

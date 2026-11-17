@@ -67,12 +67,27 @@ Parte C (build 0.4.3) — seguimento do teste
 - [ ] Tarefas ainda em falta: carrinhos abandonados, entregas, inventário (as de manutenção vêm com a Fase 5)
 
 ## Fase 5 — Terror
-- [ ] PowerManager · LightingController
-- [ ] NoiseService · HidingService
-- [ ] Monstro (estados, sentidos, pathfinding)
-- [ ] EventManager + eventos
-- [ ] Clientes NPC
-- [ ] CCTV + anomalias
+Parte A (build 0.5.0) — o monstro. Verificado fora do Studio. **Falta o teste no Studio** — `docs/05-terror.md`, secção 3.
+- [x] Grelhas de navegação e visão calculadas no build (`tools/grids.luau` → `ServerStorage`)
+- [x] `NavGrid`: A* e linha de vista exatos, célula a célula
+- [x] `Brain`: patrulha, observar, investigar, procurar, perseguir, apanhar, desaparecer
+- [x] `MonsterManager`: aparece às 3 AM longe e fora da vista; abre portas; fica mais rápido por hora
+- [x] Corpo desenhado no cliente e movido suavemente; pose procedural
+- [x] `NoiseService`: correr, portas batidas, objetos largados
+- [x] `HidingService`: 9 esconderijos (cacifos, secretária, cabines)
+- [x] `SurvivalService`: segunda oportunidade a solo, espectador em equipa, turno falhado
+- [x] Correr com estamina; sinais de perigo no ecrã; sequência de captura (3 variações)
+- [ ] **Teste no Studio (parte A)**
+
+Parte B — energia e luz
+- [ ] `PowerManager`: circuitos, disjuntores, falhas aleatórias e a falha das 4 AM
+- [ ] `LightingController`: perfis por zona e hora, tremeluzir, luzes de emergência
+- [ ] Lanterna; a luz da zona afeta o que o monstro vê
+
+Parte C — o estranho
+- [ ] `EventManager`: eventos de terror por hora (portas, carrinhos, luzes, anúncios, silhuetas)
+- [ ] Clientes NPC (normais e estranhos)
+- [ ] Câmaras de segurança + anomalias
 
 ## Fase 6 — Apresentação
 - [ ] Intro cinemática · menu principal

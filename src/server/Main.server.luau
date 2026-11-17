@@ -24,6 +24,10 @@ local SERVICE_ORDER = {
 	"ShiftManager",
 	"GameManager",
 	"TaskManager",
+	"NoiseService",
+	"HidingService",
+	"SurvivalService",
+	"MonsterManager",
 }
 
 local log = Log.new("Main")

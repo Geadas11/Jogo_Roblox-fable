@@ -107,10 +107,11 @@ function GameManager.ReturnToLobby()
 	setPhase("Lobby")
 end
 
-local function showResults(completed: boolean, hoursWorked: number, durationSeconds: number)
+local function showResults(completed: boolean, hoursWorked: number, durationSeconds: number, reason: string?)
 	setPhase("Results")
 	local results: Results = {
 		Completed = completed,
+		Reason = reason or "",
 		HoursWorked = hoursWorked,
 		DurationSeconds = math.floor(durationSeconds),
 		ClockOutTime = ShiftClock.format(
@@ -130,6 +131,18 @@ local function showResults(completed: boolean, hoursWorked: number, durationSeco
 			GameManager.ReturnToLobby()
 		end
 	end)
+end
+
+-- The shift is lost (everyone was caught). Shows the results with the reason.
+function GameManager.FailShift(reason: string): boolean
+	if GameManager.GetPhase() ~= "Shift" then
+		return false
+	end
+	local elapsed, hour = ShiftManager.GetElapsed(), ShiftManager.GetHour()
+	ShiftManager.Stop()
+	log:Info("Shift failed: %s", reason)
+	showResults(false, hour, elapsed, reason)
+	return true
 end
 
 -- Ends the shift before 6 AM. The results count it as not completed.

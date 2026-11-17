@@ -5,6 +5,8 @@
 
 	1. `rojo build` turns src/ into a place that contains only the code.
 	2. The map generator (map/) builds the supermarket into Workspace.
+	   The monster's walk and sight grids are baked from the same parts into
+	   ServerStorage (StringValues NavGrid and SightGrid).
 	3. The base lighting profile is written into Lighting so the map looks right in
 	   Studio's edit mode too (the server applies the same profile again at runtime).
 	4. The result is checked: every navigation and task point must be reachable on foot
@@ -24,6 +26,7 @@ local stdio = require("@lune/stdio")
 local Engine = require("../tests/engine")
 local Layout = require("../map/Layout")
 local Map = require("../map/Map")
+local Grids = require("./grids")
 
 local OUTPUT = "releases/NightShiftSupermarket.rbxl"
 local PLAN = "docs/floor-plan.svg"
@@ -51,6 +54,21 @@ local workspace = game:GetService("Workspace")
 
 -- 2. Map ----------------------------------------------------------------------------------
 local kit, root = Map.build(workspace)
+
+local grids = Grids.compute(kit.records, Layout.Grounds)
+local serverStorage = game:GetService("ServerStorage")
+local navValue = roblox.Instance.new("StringValue")
+navValue.Name = "NavGrid"
+navValue.Value = grids.Walk
+navValue:SetAttribute("OriginX", grids.OriginX)
+navValue:SetAttribute("OriginZ", grids.OriginZ)
+navValue:SetAttribute("Width", grids.Width)
+navValue:SetAttribute("Depth", grids.Depth)
+navValue.Parent = serverStorage
+local sightValue = roblox.Instance.new("StringValue")
+sightValue.Name = "SightGrid"
+sightValue.Value = grids.Sight
+sightValue.Parent = serverStorage
 
 -- 3. Lighting -----------------------------------------------------------------------------
 local profile = Engine.new().side("server").load("ReplicatedStorage.Shared.Config.LightingConfig").Base
@@ -243,6 +261,20 @@ do
 				)
 			)
 		end
+	end
+end
+
+-- The monster must be able to stand on every patrol point.
+for _, entry in tagged.PatrolNode or {} do
+	local i, j = math.floor(entry.x - grids.OriginX), math.floor(entry.z - grids.OriginZ)
+	if grids.WalkCells[j * grids.Width + i + 1] then
+		problem(
+			string.format(
+				"PatrolNode at (%.0f, %.0f) is too close to an obstacle for the monster",
+				entry.x,
+				entry.z
+			)
+		)
 	end
 end
 
@@ -444,6 +476,7 @@ print(
 		width * depth
 	)
 )
+print(string.format("Monster grids: %d + %d characters", #grids.Walk, #grids.Sight))
 if #skipped > 0 then
 	print(
 		"Lighting properties this tool could not write (the server sets them at runtime): "

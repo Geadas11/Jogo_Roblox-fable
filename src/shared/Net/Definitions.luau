@@ -72,6 +72,22 @@ local Definitions: { [string]: Definition } = {
 		rate = { burst = 4, perSecond = 2 },
 	},
 
+	-- Someone was caught by the monster: (userId: number, name: string, variant: number).
+	-- Every client is told; the caught player's client plays the catch sequence.
+	Caught = {
+		kind = "Event",
+		from = "Server",
+		args = {},
+	},
+
+	-- Leave the hiding spot the player is in.
+	LeaveHiding = {
+		kind = "Event",
+		from = "Client",
+		args = {},
+		rate = { burst = 3, perSecond = 2 },
+	},
+
 	-- The shift is over. Carries the results table shown on the results screen.
 	ShiftEnded = {
 		kind = "Event",

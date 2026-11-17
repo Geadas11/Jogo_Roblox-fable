@@ -20,6 +20,8 @@ local CONTROLLER_ORDER = {
 	"CameraController",
 	"HudController",
 	"ObjectivesController",
+	"SurvivalController",
+	"MonsterController",
 }
 
 local log = Log.new("Main")

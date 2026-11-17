@@ -49,15 +49,24 @@ local CLASS_SIGNALS = {
 	Player = { CharacterAdded = true, CharacterRemoving = true },
 	DataModel = { Loaded = true },
 	ProximityPrompt = { Triggered = true },
-	TextButton = { Activated = true },
+	TextButton = { Activated = true, MouseButton1Down = true, MouseButton1Up = true },
 	Humanoid = { Died = true },
-	UserInputService = { InputBegan = true },
+	UserInputService = { InputBegan = true, InputEnded = true },
+	RunService = { RenderStepped = true, Heartbeat = true },
 }
 
 -- Property values an instance has before anything sets them (only those the project reads).
 local DEFAULTS = {
 	ProximityPrompt = { Enabled = true },
-	Humanoid = { Health = 100 },
+	Humanoid = { Health = 100, WalkSpeed = 16, MoveDirection = roblox.Vector3.new(0, 0, 0) },
+	UserInputService = { TouchEnabled = false },
+	Camera = { CFrame = roblox.CFrame.new(0, 5, 0) },
+	Part = {
+		Anchored = false,
+		Transparency = 0,
+		CanCollide = true,
+		AssemblyLinearVelocity = roblox.Vector3.new(0, 0, 0),
+	},
 	Frame = { Visible = true },
 	TextLabel = { Visible = true, Text = "" },
 	TextButton = { Visible = true, Text = "" },
@@ -301,6 +310,12 @@ function Engine.new(options)
 			rawset(instance, "_name", value)
 		elseif key == "Parent" then
 			setParent(instance, value)
+		elseif key == "Health" and rawget(instance, "_class") == "Humanoid" then
+			local previous = rawget(instance, "_props").Health or 100
+			rawget(instance, "_props").Health = value
+			if value <= 0 and previous > 0 then
+				getSignal(instance, "Died"):_fire()
+			end
 		elseif key == "Position" and builtinTypeof(value) == "Vector3" then
 			rawget(instance, "_props").CFrame = roblox.CFrame.new(value)
 		else
@@ -569,6 +584,17 @@ function Engine.new(options)
 	local workspaceService = getService("Workspace")
 	getService("CollectionService")
 	getService("TweenService")
+	getService("StarterGui")
+	getService("UserInputService")
+	local camera = newInstance("Camera", "Camera")
+	setParent(camera, workspaceService)
+	rawget(workspaceService, "_props").CurrentCamera = camera
+
+	-- StarterGui:SetCore and UserInputService:IsKeyDown: nothing to simulate.
+	function methods.SetCore() end
+	function methods.IsKeyDown()
+		return false
+	end
 
 	-- Mirror of the generated map: names, classes, tags, attributes and the part
 	-- properties game code reads.
@@ -647,6 +673,11 @@ function Engine.new(options)
 
 	-- Gives a player a character model with the given number of parts.
 	function world.spawnCharacter(player, partCount)
+		local old = rawget(player, "_props").Character
+		if old then
+			getSignal(player, "CharacterRemoving"):_fire(old)
+			setParent(old, nil)
+		end
 		local character = newInstance("Model", rawget(player, "_name"))
 		for index = 1, partCount or 3 do
 			local part = newInstance("Part", "Part" .. index)
@@ -664,6 +695,17 @@ function Engine.new(options)
 		player.Character = character
 		getSignal(player, "CharacterAdded"):_fire(character)
 		return character
+	end
+
+	-- Player:LoadCharacter(): a fresh character on the first player spawn of the map.
+	function methods.LoadCharacter(player)
+		local character = world.spawnCharacter(player, 2)
+		for _, spawn in methods.GetTagged(nil, "PlayerSpawn") do
+			character.HumanoidRootPart.CFrame =
+				roblox.CFrame.new(spawn.Position + roblox.Vector3.new(0, 2.5, 0))
+			break
+		end
+		world.loads = (world.loads or 0) + 1
 	end
 
 	-- Puts a player's character at a position (or right next to an instance).
@@ -790,6 +832,7 @@ function Engine.new(options)
 				Enum = roblox.Enum,
 				Color3 = roblox.Color3,
 				Vector3 = roblox.Vector3,
+				NumberSequence = roblox.NumberSequence,
 				Vector2 = roblox.Vector2,
 				CFrame = roblox.CFrame,
 				UDim = roblox.UDim,

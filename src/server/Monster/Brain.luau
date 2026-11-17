@@ -141,6 +141,15 @@ function Brain.Appear(self: Brain, x: number, z: number)
 	self:_setState("Patrol", nil)
 end
 
+-- Removes the monster until Appear is called again (end of the night).
+function Brain.Disappear(self: Brain)
+	self.Present = false
+	self._vanishUntil = 0
+	self._noise = nil
+	self._awareness = {}
+	self:_setState("Vanished", nil)
+end
+
 function Brain._setState(self: Brain, state: string, target: number?)
 	local changed = state ~= self.State or target ~= self.TargetId
 	self.State = state
