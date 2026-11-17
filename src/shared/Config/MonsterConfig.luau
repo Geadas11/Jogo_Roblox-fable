@@ -43,6 +43,10 @@ return deepFreeze({
 		LoseSightSeconds = 5,
 		-- A player who hides less than this many seconds after being seen was seen hiding.
 		SeenHidingWindow = 1.5,
+		-- In an unlit area it sees this much less far, unless you carry a lit flashlight.
+		DarkVisionFactor = 0.5,
+		-- A lit flashlight makes you easier to notice.
+		FlashlightNoticeFactor = 1.3,
 	},
 
 	-- How far noises carry, in studs.

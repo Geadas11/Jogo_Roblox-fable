@@ -22,6 +22,7 @@ local CONTROLLER_ORDER = {
 	"ObjectivesController",
 	"SurvivalController",
 	"MonsterController",
+	"LightingController",
 }
 
 local log = Log.new("Main")

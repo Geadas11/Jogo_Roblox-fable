@@ -27,6 +27,10 @@ export type Target = {
 	Hidden: boolean,
 	-- The hiding spot they are in, if any.
 	Spot: number?,
+	-- Standing somewhere with the lights on (or holding a lit flashlight).
+	Lit: boolean?,
+	-- Holding a lit flashlight: noticed more easily.
+	Flashlight: boolean?,
 }
 
 export type Spot = { Id: number, X: number, Z: number }
@@ -236,7 +240,10 @@ function Brain._canSee(self: Brain, target: Target): boolean
 	end
 	local senses = self.Config.Senses
 	local d = distance(self.X, self.Z, target.X, target.Z)
-	if d > senses.VisionRange then
+	local range = if target.Lit == false
+		then senses.VisionRange * (senses.DarkVisionFactor or 1)
+		else senses.VisionRange
+	if d > range then
 		return false
 	end
 	if d > senses.ProximityRange then
@@ -268,6 +275,9 @@ function Brain._sense(self: Brain, dt: number, factor: number): (Target?, Target
 			local rate = (0.35 + 1.3 * closeness) / senses.DetectSeconds * factor
 			if target.Running then
 				rate *= 1.5
+			end
+			if target.Flashlight then
+				rate *= senses.FlashlightNoticeFactor or 1
 			end
 			self._awareness[target.Id] = (self._awareness[target.Id] or 0) + rate * dt
 			seen[target.Id] = true

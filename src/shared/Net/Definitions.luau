@@ -80,6 +80,14 @@ local Definitions: { [string]: Definition } = {
 		args = {},
 	},
 
+	-- Turn the player's flashlight on (true) or off (false).
+	Flashlight = {
+		kind = "Event",
+		from = "Client",
+		args = { Check.boolean },
+		rate = { burst = 6, perSecond = 4 },
+	},
+
 	-- Leave the hiding spot the player is in.
 	LeaveHiding = {
 		kind = "Event",

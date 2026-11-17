@@ -20,6 +20,7 @@ local GameManager = require(script.Parent.GameManager)
 local HidingService = require(script.Parent.HidingService)
 local NoiseService = require(script.Parent.NoiseService)
 local PlayerManager = require(script.Parent.PlayerManager)
+local PowerManager = require(script.Parent.PowerManager)
 local ShiftManager = require(script.Parent.ShiftManager)
 local SurvivalService = require(script.Parent.SurvivalService)
 
@@ -67,6 +68,9 @@ local function targets(): { Brain.Target }
 			Running = NoiseService.IsRunning(player),
 			Hidden = player:GetAttribute("Status") == "Hiding",
 			Spot = HidingService.SpotIdOf(player),
+			Flashlight = player:GetAttribute("FlashlightOn") == true,
+			Lit = player:GetAttribute("FlashlightOn") == true
+				or PowerManager.IsLit(part.Position.X, part.Position.Z),
 		})
 	end
 	return list

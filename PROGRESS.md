@@ -79,10 +79,12 @@ Parte A (build 0.5.0) — o monstro. Verificado fora do Studio. **Falta o teste 
 - [x] Correr com estamina; sinais de perigo no ecrã; sequência de captura (3 variações)
 - [ ] **Teste no Studio (parte A)**
 
-Parte B — energia e luz
-- [ ] `PowerManager`: circuitos, disjuntores, falhas aleatórias e a falha das 4 AM
-- [ ] `LightingController`: perfis por zona e hora, tremeluzir, luzes de emergência
-- [ ] Lanterna; a luz da zona afeta o que o monstro vê
+Parte B (build 0.5.1) — energia e luz. Verificado fora do Studio. **Falta o teste no Studio.**
+- [x] `PowerManager`: 5 circuitos + emergência, disjuntores, gerador, falhas aleatórias e a falha das 4 AM
+- [x] Tarefa *Restore the power* criada automaticamente em cada falha
+- [x] `LightingController`: luzes por circuito, escurecer por hora, tremeluzir, tom vermelho em falha
+- [x] Lanterna (`FlashlightService`, tecla F / botão LIGHT); o escuro reduz a visão do monstro, a lanterna denuncia
+- [ ] **Teste no Studio (parte B)**
 
 Parte C — o estranho
 - [ ] `EventManager`: eventos de terror por hora (portas, carrinhos, luzes, anúncios, silhuetas)

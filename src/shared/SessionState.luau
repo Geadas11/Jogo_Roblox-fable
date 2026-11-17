@@ -34,6 +34,13 @@ local KEYS: { [string]: KeySpec } = {
 	-- one in-game hour lasts. Together they let every client draw the same clock.
 	ShiftStartTime = { default = 0 },
 	HourDuration = { default = 240 },
+	-- Electricity, driven by PowerManager. One key per circuit in Config.PowerConfig.
+	PowerShop = { default = true },
+	PowerBackOfHouse = { default = true },
+	PowerCold = { default = true },
+	PowerStaff = { default = true },
+	PowerExterior = { default = true },
+	Generator = { default = true },
 }
 
 local SessionState = {}

@@ -543,8 +543,11 @@ test("every task type in the catalogue can actually be issued on this map", func
 	local definitions = server.load("ReplicatedStorage.Shared.Config.TaskDefinitions")
 	local count = 0
 	for typeName, definition in definitions.Types do
-		count += 1
-		expect.truthy(taskManager.Issue(typeName, definition.Max), typeName .. " could not be issued")
+		-- Weight 0: issued by another system when needed (see power.spec.luau).
+		if definition.Weight > 0 then
+			count += 1
+			expect.truthy(taskManager.Issue(typeName, definition.Max), typeName .. " could not be issued")
+		end
 	end
 	expect.equal(#taskManager.GetSnapshot(), count)
 	for _, task in taskManager.GetSnapshot() do

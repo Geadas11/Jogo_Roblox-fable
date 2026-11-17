@@ -22,6 +22,7 @@ local Signal = require(Shared.Util.Signal)
 local Net = require(script.Parent.Parent.Net)
 local GameManager = require(script.Parent.GameManager)
 local PlayerManager = require(script.Parent.PlayerManager)
+local PowerManager = require(script.Parent.PowerManager)
 local ShiftManager = require(script.Parent.ShiftManager)
 
 local log = Log.new("Tasks")
@@ -197,8 +198,8 @@ end
 -- Draws this hour's tasks from the pool.
 local function issueForHour()
 	local candidates = {}
-	for typeName in TaskDefinitions.Types do
-		if not isActive(typeName) then
+	for typeName, definition in TaskDefinitions.Types do
+		if definition.Weight > 0 and not isActive(typeName) then
 			table.insert(candidates, typeName)
 		end
 	end
@@ -261,6 +262,15 @@ function TaskManager.Init()
 end
 
 function TaskManager.Start()
+	-- Power cuts become a task for the team (one at a time).
+	PowerManager.Failure:Connect(function()
+		if GameManager.GetPhase() == "Shift" and not isActive("RestorePower") then
+			if TaskManager.Issue("RestorePower", 1) then
+				broadcast()
+			end
+		end
+	end)
+
 	ShiftManager.HourChanged:Connect(function(hour: number)
 		if hour == 0 then
 			-- A new night: forget the previous one.

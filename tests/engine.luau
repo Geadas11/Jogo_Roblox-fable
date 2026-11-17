@@ -27,6 +27,9 @@ local SUPERCLASS = {
 	Part = "BasePart",
 	MeshPart = "BasePart",
 	SpawnLocation = "Part",
+	SurfaceLight = "Light",
+	SpotLight = "Light",
+	PointLight = "Light",
 	TextLabel = "GuiObject",
 	TextButton = "GuiObject",
 	Frame = "GuiObject",
@@ -614,6 +617,8 @@ function Engine.new(options)
 				props.Transparency = source.Transparency
 				props.CanCollide = source.CanCollide
 				props.Anchored = source.Anchored
+				props.Color = source.Color
+				props.Material = source.Material
 			elseif source:IsA("Light") then
 				local props = rawget(copy, "_props")
 				props.Brightness = source.Brightness

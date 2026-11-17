@@ -16,13 +16,22 @@ export type TaskType = {
 	-- Units of work when playing alone.
 	Min: number,
 	Max: number,
-	-- Relative chance of being picked.
+	-- Relative chance of being picked. 0: never drawn at random; another system issues
+	-- it when needed (e.g. restoring the power).
 	Weight: number,
 	-- Settings read by the module.
 	Params: { [string]: any }?,
 }
 
 local Types: { [string]: TaskType } = {
+	RestorePower = {
+		Module = "RestorePower",
+		Title = "Restore the power",
+		RewardPerUnit = 60,
+		Min = 1,
+		Max = 1,
+		Weight = 0,
+	},
 	Restock = {
 		Module = "Restock",
 		Title = "Restock shelves",

@@ -23,10 +23,12 @@ local SERVICE_ORDER = {
 	"ToolService",
 	"ShiftManager",
 	"GameManager",
-	"TaskManager",
 	"NoiseService",
+	"PowerManager",
+	"TaskManager",
 	"HidingService",
 	"SurvivalService",
+	"FlashlightService",
 	"MonsterManager",
 }
 

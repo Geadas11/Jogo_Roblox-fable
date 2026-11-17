@@ -1,11 +1,39 @@
 # Fase 5 — Terror
 
-Estado: **parte A (o monstro) implementada, à espera do teu teste no Studio.** Build `0.5.0`.
+Estado: **partes A (o monstro) e B (energia e luz) implementadas, à espera do teu teste no
+Studio.** Build `0.5.1`.
 
 A Fase 5 vem em partes. Esta primeira traz o essencial: **The Customer** — o monstro —, os
 esconderijos, o ruído, correr com estamina e o que acontece quando alguém é apanhado. As
 restantes peças (energia e falhas de luz, eventos estranhos, clientes NPC, câmaras de segurança)
 são as partes B e C.
+
+---
+
+## Parte B — Energia, luz e lanterna (build `0.5.1`)
+
+**Por testar no Studio.**
+
+| O quê | Como funciona |
+|---|---|
+| **Circuitos** | Cada luz pertence a um circuito: *Shop* (loja, entrada, casas de banho), *BackOfHouse* (armazém, manutenção), *Cold* (câmara fria), *Staff* (corredor, escritório, sala dos funcionários), *Exterior* (parque). A sala elétrica está num circuito de emergência que nunca falha. |
+| **Disjuntores que disparam** | A partir das 2 AM, um circuito pode ir abaixo ao acaso (mais provável à medida que a noite avança; nunca mais de 2 de cada vez). Vai à **sala elétrica** e mantém **E** no disjuntor (*Reset*). |
+| **A grande falha das 4 AM** | A loja inteira fica às escuras. Primeiro **reinicia o gerador** (verde, na sala elétrica, 4 s), depois **cada disjuntor**. O gerador faz muito barulho — o monstro vem ver. |
+| **Tarefa** | Qualquer falha cria a tarefa *Restore the power* (+$60), que fica feita quando tudo volta a ter luz, seja quem for que o faça. |
+| **Escuridão** | Num sítio sem luz, o monstro só te vê a metade da distância (35 studs em vez de 70). |
+| **Lanterna** | **F** (ou o botão **LIGHT** no telemóvel). Vês no escuro — e o monstro vê-te a ti, a distância total e mais depressa. Desliga-se ao esconderes-te. Todos os jogadores veem o feixe de todos. |
+| **A noite a piorar** | A loja escurece um pouco a cada hora; as luzes começam a tremeluzir a partir da 1 AM, cada vez mais, sobretudo nas que o mapa marca como avariadas. Com algum circuito em baixo, a imagem fica ligeiramente avermelhada. |
+
+Para ver a falha das 4 AM depressa: põe `MainFailureHour = 1` em
+`ReplicatedStorage.Shared.Config.PowerConfig` (e baixa `HourDurationSeconds`), sem guardar.
+
+### Lista de verificação (parte B)
+- [ ] `Server ready (build 0.5.1, 16 services, …)`.
+- [ ] Às 4 AM (ou na hora configurada) as luzes da loja apagam-se; a sala elétrica continua iluminada; aparece *Restore the power*.
+- [ ] Os disjuntores não fazem nada antes do gerador; depois do gerador, cada um repõe a luz da sua zona.
+- [ ] F liga e desliga a lanterna; outro jogador vê o feixe.
+- [ ] O tremeluzir assusta sem cansar; o escurecer por hora nota-se pouco a pouco.
+- [ ] Às escuras, o monstro demora a ver-te; com a lanterna acesa vê-te logo.
 
 ---
 
