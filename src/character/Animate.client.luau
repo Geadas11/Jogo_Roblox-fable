@@ -1,0 +1,5 @@
+--!strict
+-- Replaces Roblox's default "Animate" script in every character (a script with this name
+-- in StarterCharacterScripts takes its place). Characters are animated by the client's
+-- CharacterAnimator instead: the game's own procedural walk and run, the same on every
+-- client, for players and NPCs alike. Intentionally empty.

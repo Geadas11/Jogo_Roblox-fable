@@ -92,6 +92,8 @@ function InteractionService.AddPrompt(holder: Instance, options: Options, handle
 	prompt.HoldDuration = options.hold or 0
 	prompt.MaxActivationDistance = options.distance or 8
 	prompt.RequiresLineOfSight = options.lineOfSight == true
+	-- Drawn by the client's PromptController in the game's own style.
+	prompt.Style = Enum.ProximityPromptStyle.Custom
 	prompt.Parent = holder
 
 	prompt.Triggered:Connect(function(player: Player)

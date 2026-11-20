@@ -86,6 +86,53 @@ Parte B (build 0.5.1) — energia e luz. Verificado fora do Studio. **Falta o te
 - [x] Lanterna (`FlashlightService`, tecla F / botão LIGHT); o escuro reduz a visão do monstro, a lanterna denuncia
 - [ ] **Teste no Studio (parte B)**
 
+Revisão (build 0.5.2) — auditoria do código contra o prompt original. Testes automáticos **não corridos** (lune/rojo não instalados nesta máquina).
+Playtest no Studio feito pelo Claude (1 jogador, código copiado para o place de `releases/`), confirmado: compila; turno arranca; limpar derrame; G faz barulho e esconder com esfregona não; escondido 45 s → o monstro foi ao esconderijo e apanhou; segunda oportunidade a solo; descrição da energia atualiza (disjuntor → falha geral → gerador → disjuntores); esfregona perdida volta no fim do turno; sem erros na consola.
+- [x] Avisos de arranque `LightingStyle` / `PrioritizeLightingQuality` eliminados (só o Studio pode escrever essas propriedades; o servidor deixa de tentar quando já estão certas)
+- [x] Esconder-se com um objeto na mão já não faz barulho (antes atraía o monstro direto ao esconderijo); objetos perdidos ao ser apanhado ou ao sair também não
+- [x] Esconder-se deixou de ser seguro para sempre: quem fica escondido 45 s com o monstro na loja atrai-o ao esconderijo (`MonsterConfig.Behaviour.LongHideSeconds`, `Brain:Suspect`) + teste novo em `brain.spec`
+- [x] *Clock out* em equipa: jogadores apanhados (a assistir) já não contam para o voto e não bloqueiam o fim do turno
+- [x] A tarefa *Restore the power* atualiza a descrição em tempo real (ex.: um disjuntor caiu e depois veio a falha das 4 AM)
+- [x] Tarefas que não conseguem arrancar limpam o que deixaram no mundo
+- [x] As esfregonas voltam à manutenção no início de cada turno (antes uma esfregona perdida podia impedir limpar derrames)
+- [ ] **Por testar (revisão 0.5.2)**: *Clock out* com dois jogadores, um deles apanhado (precisa de teste com 2 jogadores)
+
+Build 0.6.0 — som, eventos, menu, detalhe gráfico. Testes: 233 passam; 1 falha só de tempo (`navgrid`, ~60 ms vs limite 45 ms nesta máquina; grelha idêntica à anterior).
+Playtest no Studio pelo Claude (1 jogador): sem erros na consola; 19 sons carregam; aviso → menu → definições → multiplayer; slider de música altera o volume e é guardado no servidor; lanterna; nevoeiro na falha de energia; 9 eventos disparam (carrinho corrigido depois do teste).
+- [x] Som: ambiente (zumbido, chuva, frigoríficos, camada de medo que cresce por hora), passos e presença do monstro, tensão/perseguição/stinger, sons de eventos — só parceiros licenciados (Pro Sound Effects, APM, DistroKid) → `Config/AudioConfig`
+- [x] `EventManager`: luzes a tremer, apagão local, batidas, passos atrás de ti, porta que bate/aparece aberta, intercomunicador com texto distorcido, silhueta que foge quando olhada, produto que cai, carrinho que rola fora de vista. Nada às 12 AM; mais frequente por hora; silêncio propositado; pausa durante perseguições → `Config/EventConfig`
+- [x] HUD: canto inferior direito com o que tens na mão e teclas (G largar, F lanterna, Shift correr); mira; prompts próprios (tecla + ação + barra de segurar), notificações e descrições já não são cortadas
+- [x] Aviso inicial, menu principal (Single player / Multiplayer / How to play / Settings) com câmara cinematográfica; Single player = servidor privado (só no jogo publicado)
+- [x] Definições: volumes (geral, música, ambiente, efeitos), sensibilidade, tremer de câmara, reduzir flashes; guardadas em DataStore (só no jogo publicado), tecla P durante o jogo
+- [x] Nevoeiro escuro quando a zona onde estás fica sem luz; lanterna a seguir a câmara
+- [x] Mapa: rótulos/tampas/gargalos em garrafas, latas e frascos, rótulos nas caixas, fruta com brilho, pés e variação, máquina de vending detalhada (9 422 peças no total)
+- [ ] **Por confirmar a olho por ti**: prompts personalizados (a captura do Studio não mostra BillboardGuis), luz interior da vending (última correção), silhueta, intercomunicador, som em geral
+- [ ] Single player e gravação de definições só funcionam no jogo publicado
+
+Build 0.6.x (em curso) — 238 testes passam (navgrid só por tempo). **Ainda sem playtest no Studio.**
+- [x] Andar 8 / correr 16, stamina 4,5 s, sem salto
+- [x] Animações procedurais próprias (andar, correr, respirar, levar caixas) para jogadores R15/R6 e NPCs; corpo visível em 1.ª pessoa; balanço de câmara
+- [x] Acordar sentado à mesa (piscar, levantar) após o menu
+- [x] Prompt: contorno que enche dos dois lados; vista própria ao esconder (cacifo / secretária / cabine); cursor escondido a jogar
+- [x] Marcas inventadas + ícones nos rótulos, preços nas prateleiras (verificado em captura)
+- [x] Clientes NPC 12–2 AM (passeiam, caixas, saem; um pode ficar a olhar e desaparecer)
+- [x] Monstro: corpo R15 do Roblox (alto, magro, gabardina, cara desenhada) — modelos da Creator Store rejeitados (um tinha backdoor)
+- [x] Rótulos impressos na própria embalagem (caixas sem peça extra: −1 850 peças); nos frascos/latas a impressão fica ao centro da face (o Roblox não curva SurfaceGuis)
+- [x] Tarefas cinematográficas: cartão de hora com barras de cinema, cartões "NEW TASK"/"TASK COMPLETE", prateleira enche nível a nível, derrame encolhe, luz de inspeção fica verde
+- [x] Correções do playtest: avatares novos usam AnimationConstraint (não Motor6D) — animador suporta os dois; poses aplicadas em PreSimulation (o Animator repunha-as); `task` escondido por parâmetro em Inspect; impressões a flutuar em prateleiras vazias
+- [T*] Playtest pelo Claude (1 jogador, Studio à frente): acordar (≈4 s, termina de pé à mesa), cliente NPC a andar animado, monstro novo, marcas e preços. *Não vistos*: prompts e vistas de esconderijo (a captura do Studio não mostra BillboardGui), corpo em 1.ª pessoa a olhar para baixo, cartões de hora
+- [x] Cilindros: impressão sempre virada para o cliente e direita (dos dois lados do corredor), numa faixa central estreita para não flutuar — verificado no Studio dos dois lados do corredor
+- [x] Mais realismo: caixas de reserva em cima das gôndolas, etiquetas SALE vermelhas, cartões salientes nas prateleiras, placas de piso molhado
+- [x] Respiração ofegante com pouca stamina, "gasp" quando acaba, recuperar o fôlego (sons Pro Sound Effects) — testado a jogar: começa ao esgotar e acalma em ~8 s
+- [x] Passos de todas as personagens, ao ritmo do andar/correr, posicionais (som de passos do próprio Roblox; os padrão ficam mudos) — testado
+- [x] Eco suave (ReverbSoundEffect) nos efeitos dentro da loja
+- [x] Música de terror no menu (APM "Unsure of Anything (B)"), desvanece ao entrar — testado
+- [x] Interface de terror: letra Special Elite, cores dessaturadas, painéis com contorno vermelho-escuro, vinheta permanente, título do menu a tremeluzir — visto no Studio
+- [x] Monstro = antigo funcionário: camisa amarela de manga curta, avental azul (peito + saia) com manchas de sangue a escorrer, crachá "HELLO, MY NAME IS WALTER" riscado, mãos ensanguentadas, olhos com olheiras vermelhas, boca aberta com dentes amarelados tortos e sangue a escorrer pelo queixo — visto em jogo no Studio
+- [x] Máquina de venda: a luz sai só pelo vidro (5 tiras escondidas atrás das etiquetas, viradas para dentro, alcance curto), sem PointLights a iluminar paredes/chão — visto em jogo no Studio
+- [x] Correções: ecrã de resultados já não fica tapado pela captura; candeeiros das caixas apagam no apagão; repor a luz no fim do turno já não conta como tarefa
+- Nota: com a janela do Studio em segundo plano o cliente não desenha frames (câmara/animações param) — não é um erro do jogo
+
 Parte C — o estranho
 - [ ] `EventManager`: eventos de terror por hora (portas, carrinhos, luzes, anúncios, silhuetas)
 - [ ] Clientes NPC (normais e estranhos)

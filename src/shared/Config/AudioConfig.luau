@@ -1,0 +1,110 @@
+--!strict
+-- Every sound in the game. All of them come from Roblox's licensed partners on the
+-- Creator Store (Pro Sound Effects, APM Music, DistroKid), which Roblox makes free to use
+-- in any experience. Before adding a sound, check who uploaded it: a random upload "from
+-- YouTube" or ripped from another game is not ours to use.
+--
+--   Id       rbxassetid number
+--   Volume   base volume (0..1) before the player's settings
+--   Group    SoundGroup: Ambient, Music or Effects
+--   Speed    optional PlaybackSpeed (pitch)
+
+local deepFreeze = require(script.Parent.Parent.Util.DeepFreeze)
+
+export type SoundSpec = {
+	Id: number,
+	-- A sound that ships with Roblox itself (rbxasset://...), used instead of Id.
+	Content: string?,
+	Volume: number,
+	Group: string,
+	Speed: number?,
+	Credit: string,
+}
+
+local Sounds: { [string]: SoundSpec } = {
+	-- Ambience -------------------------------------------------------------------------
+	-- The buzz of the fluorescent tubes; fades with the lights.
+	Hum = { Id = 9119997638, Volume = 0.05, Group = "Ambient", Speed = 0.5, Credit = "Pro Sound Effects" },
+	-- Compressor drone, placed at a few coolers.
+	ColdHum = { Id = 9125767459, Volume = 0.18, Group = "Ambient", Speed = 0.6, Credit = "Pro Sound Effects" },
+	-- A low presence that grows hour by hour (silent at midnight).
+	Dread = { Id = 9112795463, Volume = 0.45, Group = "Ambient", Credit = "Pro Sound Effects" },
+	-- Rain outside, muffled.
+	Rain = { Id = 85976478711506, Volume = 0.12, Group = "Ambient", Credit = "DistroKid" },
+
+	-- Music -----------------------------------------------------------------------------
+	-- It is looking for someone near you.
+	Tension = { Id = 1843967372, Volume = 0.35, Group = "Music", Credit = "APM Music" },
+	-- It is chasing you.
+	Chase = { Id = 88275367596456, Volume = 0.5, Group = "Music", Credit = "DistroKid" },
+	-- One hit when it starts chasing you.
+	Stinger = { Id = 1841353894, Volume = 0.6, Group = "Music", Credit = "APM Music" },
+	-- The catch.
+	Catch = { Id = 1845391028, Volume = 0.9, Group = "Music", Credit = "APM Music" },
+
+	-- Effects (mostly placed in the world) --------------------------------------------
+	MonsterStep = {
+		Id = 9114523629,
+		Volume = 0.35,
+		Group = "Effects",
+		Speed = 0.8,
+		Credit = "Pro Sound Effects",
+	},
+	Presence = { Id = 9114574159, Volume = 0.5, Group = "Effects", Credit = "Pro Sound Effects" },
+	Knock = { Id = 9114141413, Volume = 0.8, Group = "Effects", Credit = "Pro Sound Effects" },
+	Bumps = { Id = 9113136235, Volume = 0.8, Group = "Effects", Credit = "Pro Sound Effects" },
+	Steps = { Id = 9113134455, Volume = 0.7, Group = "Effects", Credit = "Pro Sound Effects" },
+	MetalHit = { Id = 9116699396, Volume = 0.6, Group = "Effects", Credit = "Pro Sound Effects" },
+	CartRoll = { Id = 9120266878, Volume = 0.7, Group = "Effects", Credit = "Pro Sound Effects" },
+	DoorBang = { Id = 9114748237, Volume = 0.8, Group = "Effects", Credit = "Pro Sound Effects" },
+	ItemFall = { Id = 9113768971, Volume = 0.7, Group = "Effects", Credit = "Pro Sound Effects" },
+	PowerDown = {
+		Id = 9125784811,
+		Volume = 0.7,
+		Group = "Effects",
+		Speed = 0.7,
+		Credit = "Pro Sound Effects",
+	},
+	-- Footsteps of every character, synced to their walk. Roblox's own footstep sound
+	-- (it ships with the engine; the partner libraries have no clean single steps).
+	Footsteps = {
+		Id = 0,
+		Content = "rbxasset://sounds/action_footsteps_plastic.mp3",
+		Volume = 0.45,
+		Group = "Effects",
+		Credit = "Roblox",
+	},
+	-- The main menu: sparse low piano with hanging vocal textures, no hits.
+	MenuMusic = { Id = 9038330695, Volume = 0.5, Group = "Music", Credit = "APM Music" },
+	-- Your own breathing when out of stamina: heavy panting, and a gasp when it runs out.
+	Panting = { Id = 9113243294, Volume = 0.55, Group = "Effects", Credit = "Pro Sound Effects" },
+	Gasp = { Id = 9114555843, Volume = 0.6, Group = "Effects", Credit = "Pro Sound Effects" },
+	Intercom = {
+		Id = 9119997818,
+		Volume = 0.35,
+		Group = "Effects",
+		Speed = 1.6,
+		Credit = "Pro Sound Effects",
+	},
+}
+
+return deepFreeze({
+	Sounds = Sounds,
+
+	-- Volume of each group (the settings menu will scale these later).
+	Groups = {
+		Ambient = 1,
+		Music = 0.8,
+		Effects = 1,
+	},
+
+	-- How loud the Dread layer is at each hour (index 1 = 12 AM ... 6 = 5 AM).
+	DreadByHour = { 0, 0.15, 0.3, 0.5, 0.75, 1 },
+
+	-- Within this distance of the monster the tension music starts.
+	TensionRange = 55,
+	-- Seconds for music to fade in and out.
+	MusicFade = 2.5,
+	-- The monster's footsteps: one every this many studs walked.
+	StepEvery = 4.2,
+})

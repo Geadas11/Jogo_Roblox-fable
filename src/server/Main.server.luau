@@ -17,6 +17,8 @@ local SERVICE_ORDER = {
 	"CollisionService",
 	"EnvironmentService",
 	"PlayerManager",
+	"SettingsService",
+	"MatchService",
 	"InteractionService",
 	"DoorService",
 	"CarryService",
@@ -30,6 +32,8 @@ local SERVICE_ORDER = {
 	"SurvivalService",
 	"FlashlightService",
 	"MonsterManager",
+	"EventManager",
+	"CustomerManager",
 }
 
 local log = Log.new("Main")

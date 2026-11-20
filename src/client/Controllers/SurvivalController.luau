@@ -13,9 +13,11 @@ local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local AudioConfig = require(Shared.Config.AudioConfig)
 local MonsterConfig = require(Shared.Config.MonsterConfig)
 local Net = require(script.Parent.Parent.Net)
 local Theme = require(script.Parent.Parent.UI.Theme)
+local AudioController = require(script.Parent.AudioController)
 local HudController = require(script.Parent.HudController)
 
 local SurvivalController = {}
@@ -100,7 +102,7 @@ local function build(screen: ScreenGui)
 		runButton = run
 	end
 
-	-- Hiding: horizontal slats over the view, as if looking through a locker vent.
+	-- Hiding: what frames the view depends on where you are (HidingKind attribute).
 	hidingPanel = Theme.create("Frame", {
 		Name = "Hiding",
 		Size = UDim2.new(1, 0, 1, 0),
@@ -109,17 +111,51 @@ local function build(screen: ScreenGui)
 		ZIndex = 5,
 		Parent = screen,
 	}) :: Frame
-	for index = 0, 9 do
-		Theme.create("Frame", {
-			Name = "Slat",
-			Position = UDim2.new(0, 0, index / 10, 0),
-			Size = UDim2.new(1, 0, 0.07, 0),
-			BackgroundColor3 = Color3.fromRGB(14, 15, 16),
-			BorderSizePixel = 0,
+	local function view(name: string): Frame
+		return Theme.create("Frame", {
+			Name = name,
+			Size = UDim2.new(1, 0, 1, 0),
+			BackgroundTransparency = 1,
+			Visible = false,
 			ZIndex = 5,
 			Parent = hidingPanel,
+		}) :: Frame
+	end
+	local function block(parent: Instance, position: UDim2, size: UDim2, color: Color3, transparency: number?)
+		Theme.create("Frame", {
+			Position = position,
+			Size = size,
+			BackgroundColor3 = color,
+			BackgroundTransparency = transparency or 0,
+			BorderSizePixel = 0,
+			ZIndex = 5,
+			Parent = parent,
 		})
 	end
+	local metal = Color3.fromRGB(14, 15, 16)
+
+	-- Locker: looking out through the slatted vent in the door.
+	local locker = view("Locker")
+	for index = 0, 9 do
+		block(locker, UDim2.new(0, 0, index / 10, 0), UDim2.new(1, 0, 0.07, 0), metal)
+	end
+
+	-- Under the desk: the underside of the desk top fills the upper view, the modesty
+	-- panel and legs close in at the sides; only a low strip of floor is visible.
+	local desk = view("UnderDesk")
+	local wood = Color3.fromRGB(30, 22, 16)
+	block(desk, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 0.42, 0), wood)
+	block(desk, UDim2.new(0, 0, 0.42, 0), UDim2.new(1, 0, 0.03, 0), Color3.fromRGB(18, 13, 9))
+	block(desk, UDim2.new(0, 0, 0, 0), UDim2.new(0.16, 0, 1, 0), wood)
+	block(desk, UDim2.new(0.84, 0, 0, 0), UDim2.new(0.16, 0, 1, 0), wood)
+	block(desk, UDim2.new(0.16, 0, 0.45, 0), UDim2.new(0.68, 0, 0.55, 0), Color3.new(0, 0, 0), 0.45)
+
+	-- Restroom stall: the door is shut; you watch through the gap at its edge.
+	local stall = view("Stall")
+	local door = Color3.fromRGB(46, 58, 64)
+	block(stall, UDim2.new(0, 0, 0, 0), UDim2.new(0.47, 0, 1, 0), door)
+	block(stall, UDim2.new(0.53, 0, 0, 0), UDim2.new(0.47, 0, 1, 0), door)
+	block(stall, UDim2.new(0.47, 0, 0, 0), UDim2.new(0.06, 0, 1, 0), Color3.new(0, 0, 0), 0.35)
 	local leave = button("Leave", "LEAVE  [SPACE]", {
 		AnchorPoint = Vector2.new(0.5, 1),
 		Position = UDim2.new(0.5, 0, 1, -40),
@@ -167,6 +203,45 @@ end
 
 -- Running ------------------------------------------------------------------------------------
 
+-- Your own breathing. Below 30% stamina while running you start to pant; when it runs
+-- out you gasp; after you stop, the panting slowly eases as you get your breath back.
+local panting: Sound? = nil
+local breathLevel = 0
+local gasped = false
+
+local function breathe(dt: number, running: boolean)
+	local config = MonsterConfig.Player
+	local share = stamina / config.StaminaSeconds
+	local target = 0
+	if share < 0.3 and running then
+		target = 1
+	elseif share < 0.75 and os.clock() - lastRunAt < 12 then
+		-- Recovering: heavy at first, easing as the stamina comes back.
+		target = math.clamp((0.75 - share) / 0.45, 0, 1)
+	end
+	breathLevel += (target - breathLevel) * math.min(1, dt * (if target > breathLevel then 3 else 0.8))
+
+	if stamina <= 0 and not gasped then
+		gasped = true
+		AudioController.Play("Gasp")
+	elseif share > 0.4 then
+		gasped = false
+	end
+
+	if not panting and breathLevel > 0.02 then
+		panting = AudioController.Loop("Panting")
+	end
+	local sound = panting
+	if sound then
+		sound.Volume = AudioConfig.Sounds.Panting.Volume * breathLevel
+		if breathLevel > 0.02 and not sound.IsPlaying then
+			sound:Play()
+		elseif breathLevel <= 0.02 and sound.IsPlaying then
+			sound:Stop()
+		end
+	end
+end
+
 -- Advances stamina and sets the walk speed for this frame.
 function SurvivalController.UpdateRunning(dt: number, wantsToRun: boolean)
 	local config = MonsterConfig.Player
@@ -188,6 +263,7 @@ function SurvivalController.UpdateRunning(dt: number, wantsToRun: boolean)
 	staminaBar.Visible = stamina < config.StaminaSeconds - 0.01
 	staminaFill.Size = UDim2.new(stamina / config.StaminaSeconds, 0, 1, 0)
 	staminaFill.BackgroundColor3 = if stamina < 1 then Theme.Colors.Accent else Theme.Colors.Text
+	breathe(dt, running)
 	return running
 end
 
@@ -238,6 +314,13 @@ end
 function SurvivalController.Refresh()
 	local current = status()
 	hidingPanel.Visible = current == "Hiding"
+	local kind = tostring(Players.LocalPlayer:GetAttribute("HidingKind") or "Locker")
+	for _, child in hidingPanel:GetChildren() do
+		if child:IsA("Frame") then
+			child.Visible = child.Name == kind
+				or (child.Name == "Locker" and kind ~= "UnderDesk" and kind ~= "Stall")
+		end
+	end
 	spectatePanel.Visible = current == "Spectating"
 	if runButton then
 		runButton.Visible = current == "Working"
@@ -248,10 +331,25 @@ function SurvivalController.Init()
 	build(HudController.GetScreen())
 end
 
+-- No jumping (the server also sets JumpPower to 0; this also hides the jump button).
+local function disableJump(character: Model)
+	local found = character:WaitForChild("Humanoid", 10)
+	if found and found:IsA("Humanoid") then
+		pcall(function()
+			found:SetStateEnabled(Enum.HumanoidStateType.Jumping, false)
+		end)
+	end
+end
+
 function SurvivalController.Start()
 	local player = Players.LocalPlayer
 	player:GetAttributeChangedSignal("Status"):Connect(SurvivalController.Refresh)
+	player:GetAttributeChangedSignal("HidingKind"):Connect(SurvivalController.Refresh)
 	SurvivalController.Refresh()
+	player.CharacterAdded:Connect(disableJump)
+	if player.Character then
+		task.spawn(disableJump, player.Character)
+	end
 
 	UserInputService.InputBegan:Connect(function(input: InputObject, processed: boolean)
 		if processed then

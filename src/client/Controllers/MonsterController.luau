@@ -16,8 +16,10 @@ local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local SessionState = require(Shared.SessionState)
 local MonsterConfig = require(Shared.Config.MonsterConfig)
 local Net = require(script.Parent.Parent.Net)
+local Settings = require(script.Parent.Parent.Settings)
 local Theme = require(script.Parent.Parent.UI.Theme)
 local HudController = require(script.Parent.HudController)
 
@@ -93,8 +95,192 @@ local function buildBody(): Model
 	return model
 end
 
+-- The R15 body (when the server provides the template) ------------------------------------------
+
+local rig: Model? = nil
+local rigRoot: BasePart? = nil
+local rigHead: BasePart? = nil
+local rigJoints: { [string]: any } = {}
+-- Height of the rig's root above the floor (the server's root is ROOT_HEIGHT above it).
+local rigRootHeight = 3.7
+local SERVER_ROOT_HEIGHT = 3.7
+
+-- A face that is nearly right: small, dark, wide-set eyes of slightly different sizes,
+-- a thin mouth that does not quite go straight, shadows under the eyes.
+local function drawFace(head: BasePart)
+	local gui = Instance.new("SurfaceGui")
+	gui.Name = "Face"
+	gui.Face = Enum.NormalId.Front
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 100
+	gui.LightInfluence = 1
+	gui.Parent = head
+	local function mark(
+		x: number,
+		y: number,
+		w: number,
+		h: number,
+		color: Color3,
+		transparency: number,
+		rotation: number?
+	)
+		local frame = Instance.new("Frame")
+		frame.AnchorPoint = Vector2.new(0.5, 0.5)
+		frame.Position = UDim2.new(x, 0, y, 0)
+		frame.Size = UDim2.new(w, 0, h, 0)
+		frame.BackgroundColor3 = color
+		frame.BackgroundTransparency = transparency
+		frame.BorderSizePixel = 0
+		frame.Rotation = rotation or 0
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(1, 0)
+		corner.Parent = frame
+		frame.Parent = gui
+	end
+	local shadow = Color3.fromRGB(70, 62, 66)
+	local blood = Color3.fromRGB(96, 8, 10)
+	-- Sunken, red-rimmed eyes, slightly different sizes.
+	mark(0.27, 0.42, 0.22, 0.18, shadow, 0.5)
+	mark(0.75, 0.43, 0.2, 0.17, shadow, 0.5)
+	mark(0.27, 0.42, 0.14, 0.1, Color3.fromRGB(120, 30, 30), 0.35)
+	mark(0.75, 0.43, 0.12, 0.09, Color3.fromRGB(120, 30, 30), 0.35)
+	mark(0.27, 0.42, 0.09, 0.07, DARK, 0)
+	mark(0.75, 0.43, 0.075, 0.065, DARK, 0)
+
+	-- A mouth that opens too wide, a little crooked, full of uneven yellowed teeth.
+	local mouth = Instance.new("Frame")
+	mouth.Name = "Mouth"
+	mouth.AnchorPoint = Vector2.new(0.5, 0.5)
+	mouth.Position = UDim2.new(0.52, 0, 0.68, 0)
+	mouth.Size = UDim2.new(0.5, 0, 0.16, 0)
+	mouth.Rotation = -5
+	mouth.BackgroundColor3 = Color3.fromRGB(26, 6, 8)
+	mouth.BorderSizePixel = 0
+	mouth.ClipsDescendants = true
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0.45, 0)
+	corner.Parent = mouth
+	mouth.Parent = gui
+	local teeth = Color3.fromRGB(214, 200, 160)
+	for index = 0, 7 do
+		for _, top in { true, false } do
+			local tooth = Instance.new("Frame")
+			local height = 0.28 + ((index * 37 + (if top then 11 else 23)) % 17) / 60
+			tooth.AnchorPoint = Vector2.new(0, if top then 0 else 1)
+			tooth.Position = UDim2.new(0.04 + index * 0.115, 0, if top then 0 else 1, 0)
+			tooth.Size = UDim2.new(0.095, 0, height, 0)
+			tooth.Rotation = ((index * 13) % 9) - 4
+			tooth.BackgroundColor3 = teeth:Lerp(Color3.fromRGB(150, 130, 90), ((index * 7) % 5) / 8)
+			tooth.BorderSizePixel = 0
+			tooth.Parent = mouth
+		end
+	end
+
+	-- Blood around the mouth, running from its corners down the chin.
+	mark(0.52, 0.77, 0.34, 0.04, blood, 0.3)
+	for _, drip in { { 0.3, 0.74, 0.035, 0.14 }, { 0.71, 0.73, 0.03, 0.2 }, { 0.5, 0.78, 0.04, 0.12 } } do
+		local run = Instance.new("Frame")
+		run.AnchorPoint = Vector2.new(0.5, 0)
+		run.Position = UDim2.new(drip[1], 0, drip[2], 0)
+		run.Size = UDim2.new(drip[3], 0, drip[4], 0)
+		run.BackgroundColor3 = blood
+		run.BackgroundTransparency = 0.1
+		run.BorderSizePixel = 0
+		run.Parent = gui
+	end
+end
+
+local function setUpRig(template: Model)
+	local model = template:Clone()
+	model.Name = "TheCustomerBody"
+	local root = model:FindFirstChild("HumanoidRootPart")
+	local head = model:FindFirstChild("Head")
+	local humanoid = model:FindFirstChildOfClass("Humanoid")
+	if not root or not root:IsA("BasePart") or not head or not head:IsA("BasePart") or not humanoid then
+		return
+	end
+	root.Anchored = true
+	root.Transparency = 1
+	-- It is moved by hand: no physics, no state machine, and no Animator (which would
+	-- reset the joints to the rest pose every frame).
+	humanoid.EvaluateStateMachine = false
+	local animator = humanoid:FindFirstChildOfClass("Animator")
+	if animator then
+		animator:Destroy()
+	end
+	for _, descendant in model:GetDescendants() do
+		if descendant:IsA("Motor6D") or descendant:IsA("AnimationConstraint") then
+			rigJoints[descendant.Name] = descendant
+		elseif descendant:IsA("BasePart") then
+			descendant.CastShadow = true
+		end
+	end
+	drawFace(head)
+	rigRootHeight = humanoid.HipHeight + root.Size.Y / 2
+	rig, rigRoot, rigHead = model, root, head
+	-- Replace the simple body.
+	if body then
+		local wasVisible = body.Parent ~= nil
+		body.Parent = nil
+		body = model
+		model.Parent = if wasVisible then Workspace else nil
+	end
+end
+
+local function joint(name: string, cframe: CFrame)
+	local motor = rigJoints[name]
+	if motor then
+		motor.Transform = cframe
+	end
+end
+
+-- Poses the rig: a stiff walk with arms that hang and barely move; while chasing it
+-- leans in and reaches; while staring the head slowly tips to one side.
+local function poseRig(base: CFrame, speed: number, state: string, dt: number)
+	local root = rigRoot :: BasePart
+	walkPhase += dt * speed * 0.9
+	local stride = math.clamp(speed / 9, 0, 1)
+	local s = math.sin(walkPhase)
+	local chase = if state == "Chase" then 1 else 0
+	local now = os.clock()
+	local tilt = if state == "Observe" then math.sin(now * 0.6) * 0.5 else 0.09
+	local bob = math.abs(math.cos(walkPhase)) * 0.1 * stride
+
+	root.CFrame = base * CFrame.new(0, rigRootHeight - SERVER_ROOT_HEIGHT, 0)
+	joint("Root", CFrame.new(0, bob, 0) * CFrame.Angles(-0.28 * chase, 0, 0))
+	joint("Waist", CFrame.Angles(-0.1 * chase, 0, 0))
+	-- The head does not bob with the body: it stays level, tilted, a little forward.
+	joint("Neck", CFrame.Angles(0.12 + 0.2 * chase, 0, tilt))
+	local legAmp = (0.45 + 0.25 * chase) * stride
+	joint("RightHip", CFrame.Angles(-s * legAmp, 0, 0))
+	joint("LeftHip", CFrame.Angles(s * legAmp, 0, 0))
+	-- Knees that bend too little: the walk looks wrong.
+	joint("RightKnee", CFrame.Angles(-0.25 * stride * math.max(0, -math.sin(walkPhase + 0.9)), 0, 0))
+	joint("LeftKnee", CFrame.Angles(-0.25 * stride * math.max(0, math.sin(walkPhase + 0.9)), 0, 0))
+	-- Arms hang straight down; reaching forward when it is after you.
+	local reach = 0.9 * chase
+	local armSwing = s * 0.06 * stride
+	joint("RightShoulder", CFrame.Angles(reach + armSwing, 0, 0.03))
+	joint("LeftShoulder", CFrame.Angles(reach - armSwing, 0, -0.03))
+	joint("RightElbow", CFrame.Angles(0.15 * chase, 0, 0))
+	joint("LeftElbow", CFrame.Angles(0.15 * chase, 0, 0))
+end
+
+-- Where its head is, for the catch sequence.
+local function headPosition(): Vector3
+	if rigHead then
+		return (rigHead :: BasePart).Position
+	end
+	local piece = pieces.Head
+	return if piece then piece.Part.Position else Vector3.zero
+end
+
 -- Poses every piece for one frame around the displayed root CFrame.
 local function pose(base: CFrame, speed: number, state: string, dt: number)
+	if rig then
+		poseRig(base, speed, state, dt)
+		return
+	end
 	walkPhase += dt * speed * 0.9
 	local stride = math.clamp(speed / 10, 0, 1)
 	local swing = math.sin(walkPhase) * 0.5 * stride
@@ -248,6 +434,8 @@ local function playCatch(variant: number)
 	local face = CFrame.lookAt(rootPosition, Vector3.new(start.Position.X, rootPosition.Y, start.Position.Z))
 	shown = face
 	setVisible(true)
+	-- Put the body right there, leaning in.
+	pose(face, 0, "Chase", 0)
 
 	camera.CameraType = Enum.CameraType.Scriptable
 	overlay.Visible = true
@@ -256,15 +444,15 @@ local function playCatch(variant: number)
 	line.Text = CATCH_LINES[variant] or CATCH_LINES[1]
 
 	task.spawn(function()
-		local headPosition = face * CFrame.new(0, 3.05, 0)
+		local lookAt = headPosition()
 		local started = os.clock()
 		while os.clock() - started < 1.1 do
 			local t = (os.clock() - started) / 1.1
-			local shake = if variant == 2
+			local shake = if variant == 2 and Settings.Get("CameraShake") >= 0.5
 				then Vector3.new(math.sin(t * 90) * 0.06, math.cos(t * 70) * 0.06, 0)
 				else Vector3.zero
 			local push = if variant == 1 then t * 0.6 else 0
-			camera.CFrame = CFrame.lookAt(start.Position + flat * push + shake, headPosition.Position)
+			camera.CFrame = CFrame.lookAt(start.Position + flat * push + shake, lookAt)
 			if variant == 3 then
 				-- The lights go first; its face is the last thing you see.
 				overlay.BackgroundTransparency = 1 - math.min(1, t * 1.3) * 0.85
@@ -375,8 +563,23 @@ function MonsterController.Start()
 			task.delay(if status == "Working" then 0.2 else 0.6, endCatch)
 		end
 	end)
+	-- A catch that ends the shift (alone, or the last of the team): the player stays
+	-- "Caught" until the lobby, so lift the black screen for the results instead.
+	SessionState.Observe("Phase", function(phase: string)
+		if phase ~= "Shift" then
+			task.delay(1.2, endCatch)
+		end
+	end)
 
 	RunService.RenderStepped:Connect(onFrame)
+
+	-- The proper body, once the server has built it (it may take a moment after joining).
+	task.spawn(function()
+		local template = ReplicatedStorage:WaitForChild("TheCustomerRig", 30)
+		if template and template:IsA("Model") then
+			setUpRig(template)
+		end
+	end)
 end
 
 -- For tests: one frame of the loop.

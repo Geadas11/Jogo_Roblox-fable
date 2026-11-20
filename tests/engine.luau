@@ -51,11 +51,27 @@ local CLASS_SIGNALS = {
 	Players = { PlayerAdded = true, PlayerRemoving = true },
 	Player = { CharacterAdded = true, CharacterRemoving = true },
 	DataModel = { Loaded = true },
-	ProximityPrompt = { Triggered = true },
-	TextButton = { Activated = true, MouseButton1Down = true, MouseButton1Up = true },
+	ProximityPrompt = {
+		Triggered = true,
+		PromptHidden = true,
+		PromptButtonHoldBegan = true,
+		PromptButtonHoldEnded = true,
+	},
+	ProximityPromptService = { PromptShown = true, PromptHidden = true, PromptTriggered = true },
+	TeleportService = { TeleportInitFailed = true },
+	TextButton = {
+		Activated = true,
+		MouseButton1Down = true,
+		MouseButton1Up = true,
+		MouseEnter = true,
+		MouseLeave = true,
+		InputBegan = true,
+		InputEnded = true,
+	},
 	Humanoid = { Died = true },
-	UserInputService = { InputBegan = true, InputEnded = true },
-	RunService = { RenderStepped = true, Heartbeat = true },
+	UserInputService = { InputBegan = true, InputEnded = true, InputChanged = true },
+	RunService = { RenderStepped = true, Heartbeat = true, Stepped = true },
+	Sound = { Ended = true },
 }
 
 -- Property values an instance has before anything sets them (only those the project reads).
@@ -73,6 +89,7 @@ local DEFAULTS = {
 	Frame = { Visible = true },
 	TextLabel = { Visible = true, Text = "" },
 	TextButton = { Visible = true, Text = "" },
+	Sound = { IsPlaying = false, Volume = 0.5 },
 }
 
 -- Properties that legitimately read as nil.
@@ -593,6 +610,14 @@ function Engine.new(options)
 	setParent(camera, workspaceService)
 	rawget(workspaceService, "_props").CurrentCamera = camera
 
+	-- Sound: only whether it is playing.
+	function methods.Play(instance)
+		rawget(instance, "_props").IsPlaying = true
+	end
+	function methods.Stop(instance)
+		rawget(instance, "_props").IsPlaying = false
+	end
+
 	-- StarterGui:SetCore and UserInputService:IsKeyDown: nothing to simulate.
 	function methods.SetCore() end
 	function methods.IsKeyDown()
@@ -838,6 +863,7 @@ function Engine.new(options)
 				Color3 = roblox.Color3,
 				Vector3 = roblox.Vector3,
 				NumberSequence = roblox.NumberSequence,
+				NumberSequenceKeypoint = roblox.NumberSequenceKeypoint,
 				Vector2 = roblox.Vector2,
 				CFrame = roblox.CFrame,
 				UDim = roblox.UDim,

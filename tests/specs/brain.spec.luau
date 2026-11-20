@@ -175,6 +175,27 @@ test("it walks to a noise and searches there", function()
 	expect.equal(state.states[1], "Patrol")
 end)
 
+test("someone who hides too long is not safe: it walks to that spot and opens it", function()
+	local brain, state = setup({ spots = { { Id = 1, X = 47, Z = 46 } } })
+	brain:Appear(-51, -22)
+	local hidden = player(7, 47, 46)
+	hidden.Hidden = true
+	hidden.Spot = 1
+	state.targets = { hidden }
+	state.occupants[1] = 7
+	expect.truthy(brain:Suspect(1))
+	run(brain, 60, function()
+		return #state.caught > 0
+	end)
+	expect.equal(state.caught[1], 7)
+
+	-- Unknown spots, and a monster that is not in the store, ignore it.
+	local other = setup()
+	expect.falsy(other:Suspect(1), "suspected while absent")
+	other:Appear(-51, -22)
+	expect.falsy(other:Suspect(99), "suspected a spot that does not exist")
+end)
+
 test("a standing player is caught once it reaches them", function()
 	local brain, state = setup()
 	brain:Appear(-23, -20)

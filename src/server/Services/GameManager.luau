@@ -160,7 +160,15 @@ end
 -- Ends the shift once every player in the session has clocked out. `voter` is the
 -- player who just did, if any.
 local function resolveClockOut(voter: Player?)
-	local ready = PlayerManager.GetReadyPlayers()
+	-- Only players who are still on their feet vote: someone caught and watching the
+	-- others cannot reach the time clock, and must not block the team from leaving.
+	local ready = {}
+	for _, player in PlayerManager.GetReadyPlayers() do
+		local status = player:GetAttribute("Status")
+		if status ~= "Caught" and status ~= "Spectating" then
+			table.insert(ready, player)
+		end
+	end
 	local votes = 0
 	for _, player in ready do
 		if clockedOut[player] then
@@ -198,6 +206,11 @@ local function registerClock(instance: Instance)
 			GameManager.StartShift(player)
 		elseif phase == "Shift" then
 			if clockedOut[player] then
+				-- Someone may have been caught since: their vote no longer counts.
+				resolveClockOut(nil)
+				if GameManager.GetPhase() ~= "Shift" then
+					return
+				end
 				Net.FireClient(
 					player,
 					"Notify",

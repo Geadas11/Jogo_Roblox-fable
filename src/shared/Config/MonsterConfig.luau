@@ -19,13 +19,18 @@ return deepFreeze({
 
 	-- Player movement. Walking is silent; running is faster than the monster's chase
 	-- but noisy and limited by stamina.
+	-- Walking is slow on purpose, so running matters. Running beats the monster's chase
+	-- until about 5 AM (it gets faster every hour), and stamina runs out quickly: a chase
+	-- is about breaking line of sight and hiding, not outrunning it forever.
 	Player = {
-		WalkSpeed = 10,
-		RunSpeed = 17,
-		StaminaSeconds = 5,
+		WalkSpeed = 8,
+		RunSpeed = 16,
+		StaminaSeconds = 4.5,
 		-- Seconds without running before stamina comes back, and how long a full refill takes.
-		StaminaRegenDelay = 1,
-		StaminaRefillSeconds = 6,
+		StaminaRegenDelay = 1.2,
+		StaminaRefillSeconds = 7,
+		-- No jumping: nothing in the store needs it, and it would make escapes trivial.
+		JumpPower = 0,
 	},
 
 	Senses = {
@@ -74,6 +79,10 @@ return deepFreeze({
 		SpawnMinDistance = 70,
 		-- After catching someone it disappears for this long, then returns somewhere else.
 		VanishSeconds = 20,
+		-- Someone who stays hidden this long while it is in the store draws it to their
+		-- spot (once per hide), so hiding is a way out of a chase, not a place to wait
+		-- out the night.
+		LongHideSeconds = 45,
 		-- Paths are searched at most this often.
 		RepathSeconds = 0.5,
 	},

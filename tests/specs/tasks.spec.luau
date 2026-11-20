@@ -110,7 +110,8 @@ test("a player picks one thing up, cannot take a second, and can drop it", funct
 	expect.truthy(mops[1]:FindFirstChildOfClass("WeldConstraint"), "welded to the player")
 	local hud = player.PlayerGui.HUD
 	expect.equal(hud.Carrying.Visible, true)
-	expect.equal(hud.Carrying.Label.Text, "Carrying: Mop")
+	expect.equal(hud.Carrying.Label.Text, "MOP")
+	expect.equal(hud.Carrying.Hints.Hint.Visible, true, "the drop key is shown")
 
 	use(world, player, mops[2])
 	expect.equal(mops[2]:GetAttribute("CarriedBy"), nil)
@@ -119,7 +120,8 @@ test("a player picks one thing up, cannot take a second, and can drop it", funct
 	world.moveTo(player, 60, 3, 20)
 	world.fireServerAs(player, "DropItem")
 	expect.equal(player:GetAttribute("Carrying"), "")
-	expect.equal(hud.Carrying.Visible, false)
+	expect.equal(hud.Carrying.Label.Text, "Empty hands")
+	expect.equal(hud.Carrying.Hints.Hint.Visible, false, "nothing to drop")
 	expect.equal(mops[1].Anchored, true)
 	expect.equal(mops[1]:FindFirstChildOfClass("WeldConstraint"), nil)
 	expect.equal(promptOf(mops[1]).Enabled, true)
@@ -202,6 +204,8 @@ test("restocking: empty shelves, boxes in storage, carried one at a time", funct
 	expect.equal(player:GetAttribute("Carrying"), "StockBox")
 	use(world, player, bays[1].Anchor)
 	expect.equal(bays[1]:GetAttribute("Stocked"), true)
+	-- The shelf fills up one level at a time.
+	task.wait(1)
 	expect.truthy(productsVisible(bays[1]))
 	expect.equal(player:GetAttribute("Carrying"), "")
 	expect.equal(boxes[1].Parent, nil, "the box was used up")
@@ -221,7 +225,18 @@ test("restocking: empty shelves, boxes in storage, carried one at a time", funct
 	expect.equal(completed, 1)
 	expect.equal(total, 1)
 	expect.equal(earned, 60)
-	expect.truthy(string.find(lastNotification(player), "Task complete: Restock shelves  +$60", 1, true))
+	-- Finished tasks are announced with a card, not a line of text.
+	local announced = false
+	for _, card in player.PlayerGui.HUD.TaskCards:GetChildren() do
+		if
+			card.Name == "Card"
+			and card.Inner.Heading.Text == "TASK COMPLETE"
+			and card.Inner.Title.Text == "Restock shelves"
+		then
+			announced = true
+		end
+	end
+	expect.truthy(announced, "no task-complete card")
 end)
 
 test("a shelf cannot be restocked from far away, with a mop, or twice", function()
@@ -522,7 +537,7 @@ test("trash bags are carried to the dumpsters behind the store", function()
 
 	use(world, player, bags[1])
 	expect.equal(player:GetAttribute("Carrying"), "Trash")
-	expect.equal(player.PlayerGui.HUD.Carrying.Label.Text, "Carrying: Trash bag")
+	expect.equal(player.PlayerGui.HUD.Carrying.Label.Text, "TRASH BAG")
 	use(world, player, dumpsters[1])
 	expect.equal(bags[1].Parent, nil)
 	expect.equal(taskManager.GetSnapshot()[1].Progress, 1)

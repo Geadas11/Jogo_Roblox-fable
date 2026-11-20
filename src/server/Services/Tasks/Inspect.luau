@@ -15,6 +15,9 @@ local InteractionService = require(Services.InteractionService)
 
 local Inspect = {}
 
+-- The task library, saved here: inside Begin, `task` is the task being set up.
+local later = task.delay
+
 -- Units currently waiting for an inspection, across all tasks.
 local flagged: { [Instance]: boolean } = {}
 
@@ -74,8 +77,13 @@ function Inspect.Begin(task: any, count: number, context: any): number
 			end
 			state.Units[unit] = nil
 			flagged[unit] = nil
-			light:Destroy()
 			prompt:Destroy()
+			-- Checked: the warning light turns green for a moment, then goes out.
+			light.Name = "CheckedLight"
+			light.Color = Color3.fromRGB(90, 230, 120)
+			later(1.2, function()
+				light:Destroy()
+			end)
 			context.Progress(1, player)
 		end)
 		state.Units[unit] = { Light = light, Prompt = prompt }

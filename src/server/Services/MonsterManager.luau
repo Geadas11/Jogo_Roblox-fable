@@ -37,6 +37,9 @@ local root: BasePart? = nil
 local rng = Rng.new(os.time() + 17)
 local doors: { BasePart } = {}
 local patrolPoints: { { x: number, z: number } } = {}
+-- Players in a hiding spot: since when (monster time) and whether it already came to look.
+local hiders: { [Player]: { Spot: number, Since: number, Suspected: boolean } } = {}
+local monsterTime = 0
 
 local function playerById(id: number): Player?
 	for _, player in Players:GetPlayers() do
@@ -160,6 +163,226 @@ local function openDoors()
 	end
 end
 
+-- The body every client draws: a real R15 rig made from Roblox's own body parts (no
+-- downloaded models), too tall and too thin, grey-skinned - an old employee of the
+-- store in its uniform: a faded yellow short-sleeved shirt, a blue apron with a name
+-- badge someone scratched out, dark trousers. The apron and the hands are stained with
+-- blood. Built once at boot and kept in ReplicatedStorage as a template; clients clone
+-- it, draw its face and move its joints. Without it (e.g. outside Roblox) clients fall
+-- back to a simple body made of blocks.
+local SKIN = Color3.fromRGB(176, 172, 164)
+local SHIRT = Color3.fromRGB(196, 164, 62)
+local APRON = Color3.fromRGB(38, 64, 118)
+local TROUSERS = Color3.fromRGB(30, 30, 34)
+local BLOODY_HANDS = Color3.fromRGB(128, 62, 56)
+local BLOOD = Color3.fromRGB(92, 8, 10)
+
+-- A part welded to `to`, placed at `offset` from it; decorative only.
+local function wear(
+	rig: Model,
+	to: BasePart,
+	name: string,
+	size: Vector3,
+	offset: CFrame,
+	color: Color3
+): Part
+	local part = Instance.new("Part")
+	part.Name = name
+	part.Size = size
+	part.Color = color
+	part.Material = Enum.Material.Fabric
+	part.CanCollide = false
+	part.CanTouch = false
+	part.CanQuery = false
+	part.Massless = true
+	part.CastShadow = true
+	part.CFrame = to.CFrame * offset
+	local weld = Instance.new("WeldConstraint")
+	weld.Part0 = to
+	weld.Part1 = part
+	weld.Parent = part
+	part.Parent = rig
+	return part
+end
+
+-- Blood soaked into cloth: dark splashes of different sizes, a few running downwards.
+local function stain(part: BasePart, seed: number, amount: number)
+	local gui = Instance.new("SurfaceGui")
+	gui.Name = "Stains"
+	gui.Face = Enum.NormalId.Front
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 60
+	gui.LightInfluence = 1
+	gui.Parent = part
+	local random = Random.new(seed)
+	for _ = 1, amount do
+		local splash = Instance.new("Frame")
+		local size = random:NextNumber(0.06, 0.2)
+		local x, y = random:NextNumber(0.1, 0.9), random:NextNumber(0.05, 0.8)
+		splash.AnchorPoint = Vector2.new(0.5, 0.5)
+		splash.Position = UDim2.new(x, 0, y, 0)
+		splash.Size = UDim2.new(size, 0, size * random:NextNumber(0.6, 1.4), 0)
+		splash.Rotation = random:NextNumber(0, 180)
+		splash.BackgroundColor3 = BLOOD
+		splash.BackgroundTransparency = random:NextNumber(0.05, 0.45)
+		splash.BorderSizePixel = 0
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0.5, 0)
+		corner.Parent = splash
+		splash.Parent = gui
+		-- Some of it ran, straight down (a separate frame, so the splash's rotation
+		-- does not tip the run sideways).
+		if random:NextNumber() < 0.45 then
+			local drip = Instance.new("Frame")
+			drip.AnchorPoint = Vector2.new(0.5, 0)
+			drip.Position = UDim2.new(x + random:NextNumber(-0.02, 0.02), 0, y, 0)
+			drip.Size = UDim2.new(size * 0.16, 0, random:NextNumber(0.08, 0.22), 0)
+			drip.BackgroundColor3 = BLOOD
+			drip.BackgroundTransparency = splash.BackgroundTransparency + 0.1
+			drip.BorderSizePixel = 0
+			drip.Parent = gui
+		end
+	end
+end
+
+local function buildRigTemplate()
+	local description = Instance.new("HumanoidDescription")
+	description.HeightScale = 1.42
+	description.WidthScale = 0.78
+	description.DepthScale = 0.82
+	description.HeadScale = 0.9
+	description.BodyTypeScale = 0.35
+	description.ProportionScale = 1
+	description.HeadColor = SKIN
+	description.TorsoColor = SHIRT
+	description.LeftArmColor = SHIRT
+	description.RightArmColor = SHIRT
+	description.LeftLegColor = TROUSERS
+	description.RightLegColor = TROUSERS
+	local ok, rig = pcall(function()
+		return Players:CreateHumanoidModelFromDescription(description, Enum.HumanoidRigType.R15)
+	end)
+	if not ok or not rig then
+		log:Info("No monster rig template (%s); clients use the simple body", tostring(rig))
+		return
+	end
+	rig.Name = "TheCustomerRig"
+	local animate = rig:FindFirstChild("Animate")
+	if animate then
+		animate:Destroy()
+	end
+	local humanoid = rig:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+		humanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
+	end
+	for _, part in rig:GetDescendants() do
+		if part:IsA("BasePart") then
+			part.CanCollide = false
+			part.CanTouch = false
+			part.CanQuery = false
+			part.Massless = true
+			if string.find(part.Name, "Hand") then
+				-- Hands dark with dried blood.
+				part.Color = BLOODY_HANDS
+			elseif string.find(part.Name, "LowerArm") then
+				-- Short sleeves: bare forearms.
+				part.Color = SKIN
+			elseif string.find(part.Name, "Foot") then
+				part.Color = Color3.fromRGB(16, 15, 15)
+			end
+		elseif part:IsA("Decal") and part.Name == "face" then
+			-- Its face is drawn by the client: no smile.
+			part:Destroy()
+		end
+	end
+	-- The uniform: shirt collar, the blue apron (bib, neck strap, long front), the badge.
+	local lowerTorso = rig:FindFirstChild("LowerTorso")
+	local upperTorso = rig:FindFirstChild("UpperTorso")
+	if lowerTorso and lowerTorso:IsA("BasePart") and upperTorso and upperTorso:IsA("BasePart") then
+		local up, low = upperTorso.Size, lowerTorso.Size
+		wear(
+			rig,
+			upperTorso,
+			"Collar",
+			Vector3.new(up.X * 0.62, 0.22, up.Z * 1.06),
+			CFrame.new(0, up.Y / 2 + 0.06, 0),
+			SHIRT
+		)
+		local bib = wear(
+			rig,
+			upperTorso,
+			"ApronBib",
+			Vector3.new(up.X * 0.72, up.Y * 0.78, 0.06),
+			CFrame.new(0, -up.Y * 0.1, -(up.Z / 2 + 0.03)),
+			APRON
+		)
+		wear(
+			rig,
+			upperTorso,
+			"ApronStrap",
+			Vector3.new(up.X * 0.5, 0.12, up.Z + 0.08),
+			CFrame.new(0, up.Y / 2 - 0.02, 0),
+			APRON
+		)
+		local front = wear(
+			rig,
+			lowerTorso,
+			"ApronFront",
+			Vector3.new(low.X * 1.08, 2.5, 0.06),
+			CFrame.new(0, -1.05, -(low.Z / 2 + 0.05)) * CFrame.Angles(-0.06, 0, 0),
+			APRON
+		)
+		stain(bib, 7, 5)
+		stain(front, 13, 6)
+
+		-- "HELLO, MY NAME IS" - and the name scratched out.
+		local badge = wear(
+			rig,
+			upperTorso,
+			"NameBadge",
+			Vector3.new(0.42, 0.22, 0.03),
+			CFrame.new(up.X * 0.2, up.Y * 0.18, -(up.Z / 2 + 0.07)),
+			Color3.fromRGB(226, 220, 204)
+		)
+		badge.Material = Enum.Material.SmoothPlastic
+		local gui = Instance.new("SurfaceGui")
+		gui.Face = Enum.NormalId.Front
+		gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+		gui.PixelsPerStud = 200
+		gui.LightInfluence = 1
+		gui.Parent = badge
+		local hello = Instance.new("TextLabel")
+		hello.BackgroundTransparency = 1
+		hello.Size = UDim2.new(1, 0, 0.4, 0)
+		hello.Text = "HELLO, MY NAME IS"
+		hello.TextScaled = true
+		hello.TextColor3 = Color3.fromRGB(150, 30, 30)
+		hello.FontFace = Font.fromEnum(Enum.Font.GothamBold)
+		hello.Parent = gui
+		local name = Instance.new("TextLabel")
+		name.BackgroundTransparency = 1
+		name.Position = UDim2.new(0, 0, 0.4, 0)
+		name.Size = UDim2.new(1, 0, 0.6, 0)
+		name.Text = "WALTER"
+		name.TextScaled = true
+		name.TextColor3 = Color3.fromRGB(30, 30, 30)
+		name.FontFace = Font.fromEnum(Enum.Font.PermanentMarker)
+		name.Parent = gui
+		for index = 1, 3 do
+			local scratch = Instance.new("Frame")
+			scratch.AnchorPoint = Vector2.new(0.5, 0.5)
+			scratch.Position = UDim2.new(0.5, 0, 0.55 + index * 0.08, 0)
+			scratch.Size = UDim2.new(0.9, 0, 0.07, 0)
+			scratch.Rotation = (index - 2) * 6
+			scratch.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+			scratch.BorderSizePixel = 0
+			scratch.Parent = gui
+		end
+	end
+	rig.Parent = ReplicatedStorage
+end
+
 function MonsterManager.GetBrain(): Brain.Brain?
 	return brain
 end
@@ -170,9 +393,33 @@ function MonsterManager.Step(dt: number)
 	if not current then
 		return
 	end
+	monsterTime += dt
 	current:Step(dt)
 	openDoors()
+	MonsterManager.CheckHiders()
 	sync()
+end
+
+-- Draws the monster to anyone who has been hiding too long (only while it is here).
+function MonsterManager.CheckHiders()
+	local current = brain
+	if not current or not current.Present then
+		-- Time spent hiding while it is away does not count.
+		for _, entry in hiders do
+			entry.Since = monsterTime
+		end
+		return
+	end
+	for _, entry in hiders do
+		if
+			not entry.Suspected
+			and monsterTime - entry.Since >= MonsterConfig.Behaviour.LongHideSeconds
+			and current:Suspect(entry.Spot)
+		then
+			entry.Suspected = true
+			return -- one at a time
+		end
+	end
 end
 
 -- Brings the monster into the store, at a given point or somewhere out of sight.
@@ -244,6 +491,14 @@ function MonsterManager.Init()
 		end,
 	}, MonsterConfig :: any)
 
+	HidingService.Changed:Connect(function(player: Player, spotId: number?)
+		if spotId then
+			hiders[player] = { Spot = spotId, Since = monsterTime, Suspected = false }
+		else
+			hiders[player] = nil
+		end
+	end)
+
 	NoiseService.Heard:Connect(function(position: Vector3, radius: number)
 		local current = brain
 		if current and current.Present then
@@ -279,6 +534,7 @@ function MonsterManager.Start()
 		)
 	end
 	ensureRoot()
+	task.spawn(buildRigTemplate)
 
 	ShiftManager.HourChanged:Connect(function(hour: number)
 		if hour == 0 then

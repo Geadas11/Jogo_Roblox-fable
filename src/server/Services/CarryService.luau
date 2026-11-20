@@ -30,8 +30,10 @@ type Held = {
 local CarryService = {}
 
 -- Fired when a player picks an item up or lets go of it: (player, item, kind).
+-- Dropped also says whether it was a noisy drop (the player let go of it on purpose)
+-- or a quiet one (set down to hide, or left behind when caught / gone).
 CarryService.PickedUp = Signal.new() :: Signal.Signal<Player, BasePart, string>
-CarryService.Dropped = Signal.new() :: Signal.Signal<Player, BasePart, string>
+CarryService.Dropped = Signal.new() :: Signal.Signal<Player, BasePart, string, boolean>
 
 local pickups: { [BasePart]: Pickup } = {}
 local held: { [Player]: Held } = {}
@@ -116,7 +118,8 @@ end
 
 -- Puts the carried item down. With `inPlace` it stays exactly where it is (used when
 -- the character is disappearing); otherwise it is set on the floor in front of the player.
-function CarryService.Drop(player: Player, inPlace: boolean?): boolean
+-- Only a deliberate drop (not in place, not `quiet`) makes a noise the monster hears.
+function CarryService.Drop(player: Player, inPlace: boolean?, quiet: boolean?): boolean
 	local entry = held[player]
 	if not entry then
 		return false
@@ -140,7 +143,7 @@ function CarryService.Drop(player: Player, inPlace: boolean?): boolean
 	if pickup then
 		pickup.Prompt.Enabled = true
 	end
-	CarryService.Dropped:Fire(player, item, entry.Kind)
+	CarryService.Dropped:Fire(player, item, entry.Kind, not inPlace and not quiet)
 	return true
 end
 

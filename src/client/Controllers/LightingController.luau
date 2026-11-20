@@ -24,6 +24,7 @@ local LightingConfig = require(Shared.Config.LightingConfig)
 local PowerConfig = require(Shared.Config.PowerConfig)
 local SessionState = require(Shared.SessionState)
 local Net = require(script.Parent.Parent.Net)
+local Settings = require(script.Parent.Parent.Settings)
 local Theme = require(script.Parent.Parent.UI.Theme)
 local HudController = require(script.Parent.HudController)
 
@@ -34,16 +35,35 @@ type Fixture = {
 	Color: Color3,
 	Faulty: boolean,
 	Flickering: boolean,
+	-- os.clock() until which a blackout event keeps it dark.
+	DarkUntil: number,
 }
+
+type Zone = { X1: number, X2: number, Z1: number, Z2: number, Area: number, Circuit: string }
 
 local LightingController = {}
 
 local fixtures: { Fixture } = {}
+local zones: { Zone } = {}
 local nextFlickerIn = math.huge
 local powerGrade: ColorCorrectionEffect? = nil
 local lightButton: TextButton? = nil
+-- 0 = normal air, 1 = the thick dark haze of a room without power.
+local fog = 0
+local blackoutUntil = 0
+local blackoutAt: Vector3? = nil
+local blackoutRadius = 0
 
 local OFF_COLOR = Color3.fromRGB(70, 72, 74)
+
+-- The air when the lights are out: denser, darker, closer.
+local FOG_DARK = {
+	Density = 0.62,
+	Offset = 0.55,
+	Haze = 5,
+	Color = Color3.fromRGB(14, 15, 18),
+	Decay = Color3.fromRGB(6, 6, 8),
+}
 
 local function circuitOn(circuit: string): boolean
 	if circuit == "Emergency" or not table.find(PowerConfig.Circuits, circuit) then
@@ -58,12 +78,21 @@ local function hourProfile(): { Ambient: number, Flicker: number }
 end
 
 local function setLit(fixture: Fixture, lit: boolean)
+	if lit and fixture.DarkUntil > os.clock() then
+		lit = false
+	end
 	local light = fixture.Light
 	if light then
 		light.Enabled = lit
 	end
 	fixture.Tube.Material = if lit then Enum.Material.Neon else Enum.Material.SmoothPlastic
 	fixture.Tube.Color = if lit then fixture.Color else OFF_COLOR
+	-- Lit signs (the checkout lane numbers) carry glowing text: it goes out too.
+	for _, child in fixture.Tube:GetChildren() do
+		if child:IsA("SurfaceGui") then
+			child.Enabled = lit
+		end
+	end
 end
 
 -- Puts every light and the ambient level in line with the power and the hour.
@@ -107,6 +136,16 @@ function LightingController.Flicker(fixture: Fixture)
 		return
 	end
 	fixture.Flickering = true
+	if Settings.Get("ReducedFlashing") >= 0.5 then
+		-- Reduced flashing: one slow dip instead of a strobe.
+		task.spawn(function()
+			setLit(fixture, false)
+			task.wait(0.8)
+			fixture.Flickering = false
+			setLit(fixture, circuitOn(fixture.Circuit))
+		end)
+		return
+	end
 	task.spawn(function()
 		for _ = 1, math.random(3, 7) do
 			setLit(fixture, false)
@@ -117,6 +156,96 @@ function LightingController.Flicker(fixture: Fixture)
 		fixture.Flickering = false
 		setLit(fixture, circuitOn(fixture.Circuit))
 	end)
+end
+
+local function fixturesNear(x: number, z: number, radius: number): { Fixture }
+	local near = {}
+	for _, fixture in fixtures do
+		local position = fixture.Tube.Position
+		local dx, dz = position.X - x, position.Z - z
+		if dx * dx + dz * dz <= radius * radius then
+			table.insert(near, fixture)
+		end
+	end
+	return near
+end
+
+-- A horror event: the lights around a point stutter together.
+function LightingController.FlickerNear(x: number, z: number, radius: number)
+	for _, fixture in fixturesNear(x, z, radius) do
+		LightingController.Flicker(fixture)
+	end
+end
+
+-- A horror event: the lights around a point go out for a few seconds, then come back.
+function LightingController.BlackoutNear(x: number, z: number, radius: number, seconds: number)
+	local untilTime = os.clock() + seconds
+	local affected = fixturesNear(x, z, radius)
+	for _, fixture in affected do
+		fixture.DarkUntil = untilTime
+		setLit(fixture, false)
+	end
+	blackoutUntil = untilTime
+	blackoutAt = Vector3.new(x, 0, z)
+	blackoutRadius = radius
+	task.delay(seconds, function()
+		for _, fixture in affected do
+			if not fixture.Flickering then
+				setLit(fixture, circuitOn(fixture.Circuit))
+			end
+		end
+	end)
+end
+
+-- The circuit lighting a point (the smallest zone containing it), like PowerManager.
+local function circuitAt(x: number, z: number): string?
+	local best: Zone? = nil
+	for _, zone in zones do
+		if x >= zone.X1 and x <= zone.X2 and z >= zone.Z1 and z <= zone.Z2 then
+			if best == nil or zone.Area < best.Area then
+				best = zone
+			end
+		end
+	end
+	return if best then best.Circuit else nil
+end
+
+-- Thickens the air where the player stands has no light; thins it again when it returns.
+local function updateFog(dt: number)
+	local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
+	if not atmosphere then
+		return
+	end
+	local character = Players.LocalPlayer.Character
+	local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
+	local target = 0
+	if root and root:IsA("BasePart") then
+		local position = root.Position
+		local circuit = circuitAt(position.X, position.Z)
+		if circuit and not circuitOn(circuit) then
+			target = 1
+		end
+		local at = blackoutAt
+		if at and os.clock() < blackoutUntil then
+			local dx, dz = position.X - at.X, position.Z - at.Z
+			if dx * dx + dz * dz <= blackoutRadius * blackoutRadius then
+				target = 1
+			end
+		end
+	end
+	if math.abs(target - fog) < 0.001 then
+		return
+	end
+	-- In quickly when the lights die, out slowly when they come back.
+	local speed = if target > fog then 1.2 else 0.35
+	fog = if target > fog then math.min(target, fog + dt * speed) else math.max(target, fog - dt * speed)
+
+	local base = (LightingConfig.Base.Children[1] :: any).Properties
+	atmosphere.Density = base.Density + (FOG_DARK.Density - base.Density) * fog
+	atmosphere.Offset = base.Offset + (FOG_DARK.Offset - base.Offset) * fog
+	atmosphere.Haze = base.Haze + (FOG_DARK.Haze - base.Haze) * fog
+	atmosphere.Color = (base.Color :: Color3):Lerp(FOG_DARK.Color, fog)
+	atmosphere.Decay = (base.Decay :: Color3):Lerp(FOG_DARK.Decay, fog)
 end
 
 local function flickerSomewhere()
@@ -155,9 +284,66 @@ local function register(instance: Instance)
 		Color = instance.Color,
 		Faulty = instance:GetAttribute("Flicker") == true,
 		Flickering = false,
+		DarkUntil = 0,
 	}
 	table.insert(fixtures, fixture)
 	setLit(fixture, circuitOn(fixture.Circuit))
+end
+
+-- The local player's own beam. The server's flashlight sits on the character's head,
+-- which does not tilt up and down with the first-person camera; so this client draws
+-- its own beam from the camera (exactly where you look) and hides its head light
+-- locally. Everyone else still sees the server's beam.
+local beam: Part? = nil
+
+local function updateBeam()
+	local player = Players.LocalPlayer
+	local on = player:GetAttribute("FlashlightOn") == true
+	local camera = Workspace.CurrentCamera
+	local character = player.Character
+	local head = if character then character:FindFirstChild("Head") else nil
+	local headLight = if head then head:FindFirstChild("Flashlight") else nil
+	if headLight and headLight:IsA("SpotLight") and on then
+		-- Local only: does not replicate, so others keep seeing it.
+		headLight.Enabled = false
+	end
+	if not on or not camera then
+		if beam then
+			(beam :: Part).Parent = nil
+		end
+		return
+	end
+	if not beam then
+		local part = Instance.new("Part")
+		part.Name = "FlashlightBeam"
+		part.Size = Vector3.new(0.2, 0.2, 0.2)
+		part.Transparency = 1
+		part.Anchored = true
+		part.CanCollide = false
+		part.CanQuery = false
+		part.CanTouch = false
+		part.CastShadow = false
+		local light = Instance.new("SpotLight")
+		light.Face = Enum.NormalId.Front
+		light.Angle = 50
+		light.Range = 55
+		light.Brightness = 2.6
+		light.Color = Color3.fromRGB(255, 244, 222)
+		light.Shadows = true
+		light.Parent = part
+		-- A little spill around you, so the floor at your feet is not black.
+		local spill = Instance.new("PointLight")
+		spill.Range = 9
+		spill.Brightness = 0.35
+		spill.Color = Color3.fromRGB(255, 240, 215)
+		spill.Shadows = false
+		spill.Parent = part
+		beam = part
+	end
+	local part = beam :: Part
+	-- Held low and to the right, like a torch in your hand.
+	part.CFrame = camera.CFrame * CFrame.new(0.7, -0.6, -0.4)
+	part.Parent = Workspace
 end
 
 local function toggleFlashlight()
@@ -221,7 +407,24 @@ function LightingController.Start()
 		end
 	end)
 
+	for _, volume in CollectionService:GetTagged("Zone") do
+		if volume:IsA("BasePart") and volume:GetAttribute("Circuit") ~= nil then
+			local position, size = volume.Position, volume.Size
+			table.insert(zones, {
+				X1 = position.X - size.X / 2,
+				X2 = position.X + size.X / 2,
+				Z1 = position.Z - size.Z / 2,
+				Z2 = position.Z + size.Z / 2,
+				Area = size.X * size.Z,
+				Circuit = tostring(volume:GetAttribute("Circuit")),
+			})
+		end
+	end
+
+	RunService.RenderStepped:Connect(updateBeam)
+
 	RunService.Heartbeat:Connect(function(dt: number)
+		updateFog(dt)
 		local profile = hourProfile()
 		if profile.Flicker <= 0 then
 			nextFlickerIn = math.huge

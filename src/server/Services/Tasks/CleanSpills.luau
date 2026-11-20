@@ -4,6 +4,7 @@
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage.Shared
@@ -69,7 +70,21 @@ function CleanSpills.Begin(task: any, count: number, context: any): number
 			end
 			state.Spills[spill] = nil
 			occupied[point] = nil
-			spill:Destroy()
+			-- Mopped up: the puddle shrinks away instead of vanishing.
+			spill.Name = "MoppedSpill"
+			local prompt = spill:FindFirstChildOfClass("ProximityPrompt")
+			if prompt then
+				prompt:Destroy()
+			end
+			local tween = TweenService:Create(
+				spill,
+				TweenInfo.new(0.7, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+				{ Size = Vector3.new(spill.Size.X, 0.2, 0.2) }
+			)
+			tween.Completed:Once(function()
+				spill:Destroy()
+			end)
+			tween:Play()
 			context.Progress(1, player)
 		end)
 	end

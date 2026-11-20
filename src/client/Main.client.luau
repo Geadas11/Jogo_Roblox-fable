@@ -19,16 +19,25 @@ local Net = require(script.Parent.Net)
 local CONTROLLER_ORDER = {
 	"CameraController",
 	"HudController",
+	"PromptController",
+	"CharacterAnimator",
 	"ObjectivesController",
 	"SurvivalController",
 	"MonsterController",
 	"LightingController",
+	"AudioController",
+	"EventController",
+	"CinematicController",
+	"WakeUpController",
+	"MenuController",
 }
 
 local log = Log.new("Main")
 
 SessionState.Start()
 Net.Start()
+-- The player's saved settings, before any controller reads them.
+require(script.Parent.Settings).Start()
 
 Loader.Run(script.Parent.Controllers, CONTROLLER_ORDER, log)
 

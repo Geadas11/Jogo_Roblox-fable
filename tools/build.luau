@@ -496,6 +496,11 @@ end
 fs.writeDir("releases")
 local bytes = roblox.serializePlace(game)
 fs.writeFile(OUTPUT, bytes)
+-- The map and the monster's grids as separate models, for live sync into an open Studio
+-- (`rojo serve serve.project.json`: rebuilding updates them in Studio without reopening).
+fs.writeFile("build/Map.rbxm", roblox.serializeModel({ root }))
+fs.writeFile("build/NavGrid.rbxm", roblox.serializeModel({ navValue }))
+fs.writeFile("build/SightGrid.rbxm", roblox.serializeModel({ sightValue }))
 fs.writeFile(PLAN, table.concat(svg, "\n"))
 -- Raw part list, for external previews and debugging (not committed).
 fs.writeFile("build/map-records.json", require("@lune/serde").encode("json", kit.records))

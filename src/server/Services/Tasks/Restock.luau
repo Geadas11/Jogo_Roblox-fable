@@ -14,14 +14,49 @@ local InteractionService = require(Services.InteractionService)
 
 local Restock = {}
 
--- Shows or hides the products of a bay.
-local function setStocked(bay: Instance, stocked: boolean)
-	bay:SetAttribute("Stocked", stocked)
-	for _, child in bay:GetChildren() do
-		if child:IsA("BasePart") and child.Name ~= "Anchor" then
-			child.Transparency = if stocked then 0 else 1
+local function setPartShown(part: BasePart, shown: boolean)
+	part.Transparency = if shown then 0 else 1
+	-- The printed labels must go with the packaging, or they would float in mid-air.
+	for _, child in part:GetChildren() do
+		if child:IsA("SurfaceGui") then
+			child.Enabled = shown
 		end
 	end
+end
+
+-- Shows or hides the products of a bay. With `animated`, they come back one shelf at a
+-- time from the bottom up, as if someone were filling it.
+local function setStocked(bay: Instance, stocked: boolean, animated: boolean?)
+	bay:SetAttribute("Stocked", stocked)
+	local parts = {}
+	for _, child in bay:GetChildren() do
+		if child:IsA("BasePart") and child.Name ~= "Anchor" then
+			table.insert(parts, child)
+		end
+	end
+	if not (stocked and animated) then
+		for _, part in parts do
+			setPartShown(part, stocked)
+		end
+		return
+	end
+	table.sort(parts, function(a: BasePart, b: BasePart)
+		return a.Position.Y < b.Position.Y
+	end)
+	task.spawn(function()
+		local lastY = -math.huge
+		for _, part in parts do
+			if bay:GetAttribute("Stocked") ~= true then
+				return
+			end
+			-- A short pause between shelves.
+			if part.Position.Y - lastY > 1 then
+				lastY = part.Position.Y
+				task.wait(0.18)
+			end
+			setPartShown(part, true)
+		end
+	end)
 end
 
 local function createBox(position: Vector3): BasePart
@@ -73,7 +108,7 @@ function Restock.Begin(task: any, count: number, context: any): number
 				)
 				return
 			end
-			setStocked(bay, true)
+			setStocked(bay, true, true)
 			state.Prompts[bay] = nil
 			prompt:Destroy()
 			context.Progress(1, player)

@@ -25,6 +25,15 @@ local EnvironmentService = {}
 -- update, or not scriptable) is reported instead of aborting the rest.
 local function applyProperties(instance: Instance, properties: { [string]: any })
 	for name, value in properties do
+		-- Some properties (LightingStyle, PrioritizeLightingQuality) can only be written
+		-- by Studio, not by a game script. When the place already has the right value
+		-- there is nothing to write; reportPlaceSettings warns when it does not.
+		local readOk, current = pcall(function()
+			return (instance :: any)[name]
+		end)
+		if readOk and current == value then
+			continue
+		end
 		local ok, message = pcall(function()
 			(instance :: any)[name] = value
 		end)

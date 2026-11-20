@@ -91,6 +91,9 @@ export type Brain = typeof(setmetatable(
 		_observeRolled: { [number]: boolean },
 		_vanishUntil: number,
 		_noise: { x: number, z: number }?,
+		-- A hiding spot it has become suspicious of: it will open it after the next
+		-- investigation (see Suspect).
+		_suspect: Spot?,
 	},
 	Brain
 ))
@@ -128,6 +131,7 @@ function Brain.new(grid: NavGrid.NavGrid, world: World, config: Config): Brain
 		_observeRolled = {},
 		_vanishUntil = 0,
 		_noise = nil,
+		_suspect = nil,
 	}, Brain)
 	return self
 end
@@ -150,6 +154,7 @@ function Brain.Disappear(self: Brain)
 	self.Present = false
 	self._vanishUntil = 0
 	self._noise = nil
+	self._suspect = nil
 	self._awareness = {}
 	self:_setState("Vanished", nil)
 end
@@ -313,6 +318,24 @@ function Brain.Hear(self: Brain, x: number, z: number)
 		return
 	end
 	self._noise = { x = x, z = z }
+	self._suspect = nil
+end
+
+-- Something about a hiding spot draws it there (someone has stayed inside too long):
+-- it walks over as if to a noise and opens that spot. Hiding is never safe forever.
+-- Ignored while it is busy chasing or catching.
+function Brain.Suspect(self: Brain, spotId: number): boolean
+	if not self.Present or self.State == "Chase" or self.State == "Catch" then
+		return false
+	end
+	for _, spot in self.World.HidingSpots do
+		if spot.Id == spotId then
+			self._noise = { x = spot.X, z = spot.Z }
+			self._suspect = spot
+			return true
+		end
+	end
+	return false
 end
 
 -- Actions --------------------------------------------------------------------------------
@@ -320,6 +343,7 @@ end
 function Brain._startChase(self: Brain, target: Target)
 	self._lastSeen = { x = target.X, z = target.Z, at = self._time }
 	self._noise = nil
+	self._suspect = nil
 	self:_setState("Chase", target.Id)
 end
 
@@ -460,7 +484,14 @@ function Brain.Step(self: Brain, dt: number)
 		end
 	elseif state == "Investigate" then
 		local point = self._searchPoints[1]
-		if not point or self:_moveTowards(point.x, point.z, speed.Investigate, dt) then
+		local suspect = self._suspect
+		if suspect then
+			-- Straight to the suspicious spot: _stepSearch opens it on arrival.
+			self._suspect = nil
+			self:_setState("Search", nil)
+			self._searchPoints = {}
+			self._searchSpot = suspect
+		elseif not point or self:_moveTowards(point.x, point.z, speed.Investigate, dt) then
 			local x, z = if point then point.x else self.X, if point then point.z else self.Z
 			self:_startSearch(x, z)
 		end

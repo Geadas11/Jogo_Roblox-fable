@@ -5,20 +5,24 @@
 
 local Theme = {}
 
+-- A horror palette: almost no colour. Bone-white text, dried-blood red, a moss green
+-- and an old amber that read as signals without looking like a cheerful game.
 Theme.Colors = {
-	Background = Color3.fromRGB(10, 11, 14),
-	Panel = Color3.fromRGB(18, 20, 24),
-	Text = Color3.fromRGB(232, 232, 226),
-	TextDim = Color3.fromRGB(150, 152, 150),
-	Accent = Color3.fromRGB(196, 54, 48),
-	Good = Color3.fromRGB(120, 200, 140),
-	Warning = Color3.fromRGB(226, 176, 72),
+	Background = Color3.fromRGB(8, 8, 9),
+	Panel = Color3.fromRGB(13, 12, 12),
+	Text = Color3.fromRGB(214, 206, 192),
+	TextDim = Color3.fromRGB(128, 122, 114),
+	Accent = Color3.fromRGB(150, 32, 30),
+	Good = Color3.fromRGB(132, 150, 120),
+	Warning = Color3.fromRGB(186, 160, 110),
+	Edge = Color3.fromRGB(70, 22, 20),
 }
 
+-- Typewriter type everywhere: an incident report, not a game menu.
 Theme.Fonts = {
-	Title = Font.fromEnum(Enum.Font.GothamBold),
-	Body = Font.fromEnum(Enum.Font.GothamMedium),
-	Clock = Font.fromEnum(Enum.Font.RobotoMono),
+	Title = Font.fromEnum(Enum.Font.SpecialElite),
+	Body = Font.fromEnum(Enum.Font.SpecialElite),
+	Clock = Font.fromEnum(Enum.Font.SpecialElite),
 }
 
 -- Creates an instance, sets its properties and parents its children to it.
@@ -60,7 +64,15 @@ function Theme.panel(properties: { [string]: any }, children: { Instance }?): Fr
 		defaults[name] = value
 	end
 	local frame = Theme.create("Frame", defaults, children) :: Frame
-	Theme.create("UICorner", { CornerRadius = UDim.new(0, 6), Parent = frame })
+	-- Hard corners and a thin dark-red edge.
+	Theme.create("UICorner", { CornerRadius = UDim.new(0, 2), Parent = frame })
+	Theme.create("UIStroke", {
+		Color = Theme.Colors.Edge,
+		Thickness = 1,
+		Transparency = 0.35,
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+		Parent = frame,
+	})
 	return frame
 end
 

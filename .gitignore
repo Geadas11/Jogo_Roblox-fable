@@ -7,4 +7,6 @@
 *.rbxlx.lock
 sourcemap.json
 /build/
+# Local copies of the tools pinned in rokit.toml (scripts/*.ps1 use them).
+/.tools/
 .DS_Store

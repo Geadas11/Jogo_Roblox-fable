@@ -163,6 +163,8 @@ local function onPlayerAdded(player: Player)
 		local humanoid = character:WaitForChild("Humanoid", 10)
 		if humanoid and humanoid:IsA("Humanoid") then
 			humanoid.WalkSpeed = MonsterConfig.Player.WalkSpeed
+			humanoid.UseJumpPower = true
+			humanoid.JumpPower = MonsterConfig.Player.JumpPower
 			humanoid.Died:Connect(function()
 				-- Not the monster's doing (e.g. the player reset): back in a moment.
 				if status(player) == "Working" or status(player) == "Hiding" then

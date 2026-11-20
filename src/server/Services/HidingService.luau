@@ -75,6 +75,7 @@ function HidingService.Release(player: Player)
 	spot.Part:SetAttribute("Occupied", false)
 	spot.Prompt.Enabled = true
 	leftAt[player] = os.clock()
+	player:SetAttribute("HidingKind", nil)
 	setStatusIf(player, "Hiding", "Working")
 	HidingService.Changed:Fire(player, nil)
 end
@@ -92,13 +93,16 @@ function HidingService.Hide(player: Player, spot: Spot): boolean
 		return false
 	end
 
-	CarryService.Drop(player)
+	-- Set down quietly: a noise here would lead the monster straight to the spot.
+	CarryService.Drop(player, false, true)
 	spot.Occupant = player
 	spotOf[player] = spot
 	spot.Part:SetAttribute("Occupied", true)
 	spot.Prompt.Enabled = false
 	root.Anchored = true
 	root.CFrame = insideCFrame(spot)
+	-- What the client draws over the view: locker vents, the desk above, a stall door.
+	player:SetAttribute("HidingKind", spot.Kind)
 	player:SetAttribute("Status", "Hiding")
 	HidingService.Changed:Fire(player, spot.Id)
 	return true

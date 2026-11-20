@@ -15,6 +15,7 @@ local Kit = {}
 Kit.__index = Kit
 
 Kit.Instance, Kit.Vector3, Kit.CFrame, Kit.Color3, Kit.Enum = Instance, Vector3, CFrame, Color3, Enum
+Kit.UDim2, Kit.Font, Kit.Vector2 = UDim2, Font, roblox.Vector2
 
 -- Compass direction -> face of an unrotated part.
 local FACE = { N = "Front", S = "Back", W = "Left", E = "Right", U = "Top", D = "Bottom" }

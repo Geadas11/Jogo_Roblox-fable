@@ -422,9 +422,173 @@ return function(k, root)
 	k:span(staffMonitor, "Screen", -85.5, 3.1, -29.1, -83.1, 4.8, -29.05, P.neon(34, 52, 60))
 	k:span(staff, "Fridge", -81.5, 0, -29.5, -78, 7, -26.5, P.white)
 
-	local vending = k:span(staff, "VendingMachine", -99.5, 0, -22, -96.5, 7.5, -17.5, P.darkSteel)
-	local vendingFront = k:span(vending, "Front", -96.5, 2.4, -21.6, -96.44, 7.1, -17.9, P.neon(80, 150, 230))
-	k:text(vendingFront, "E", "COLD\nDRINKS", { glow = 1.5 })
+	-- Snack and drink machine against the west wall, facing east (+X).
+	-- Seen from the front: the glass window with the goods on the left, the keypad
+	-- column on the right, the pick-up flap underneath. Purely visual.
+	do
+		local vending = k:model(staff, "VendingMachine")
+		local body = P.darkSteel
+		local trim = P.dSteel
+		local front = -96.5
+		-- Back block, the keypad column (right, -Z side), the narrow left jamb, base and top.
+		k:span(vending, "Cabinet", -99.5, 0, -22, -97.9, 7.5, -17.5, body)
+		k:span(vending, "KeypadColumn", -97.9, 0, -22, front, 7.5, -20.3, body)
+		k:span(vending, "Jamb", -97.9, 2.1, -17.8, front, 6.9, -17.5, body)
+		k:span(vending, "Base", -97.9, 0, -20.3, front, 2.1, -17.5, body)
+		k:span(vending, "Header", -97.9, 6.9, -20.3, front, 7.5, -17.5, body)
+		-- Lit sign on top of the front.
+		local sign =
+			k:span(vending, "Sign", front, 6.95, -21.9, front + 0.06, 7.45, -17.6, P.neon(70, 140, 225))
+		k:text(sign, "E", "COLD DRINKS  ·  SNACKS", { glow = 1.6, pps = 30 })
+
+		-- Inside the window: a light back panel, five shelves of goods, price tags.
+		k:span(vending, "BackPanel", -97.95, 2.1, -20.3, -97.85, 6.9, -17.8, P.dSteel)
+		k:span(vending, "InnerLight", -97.8, 6.75, -20.25, front - 0.15, 6.85, -17.85, P.neon(235, 245, 255))
+		-- The cabinet is lit from inside only, like a real machine: a short light strip just
+		-- behind the glass under the top and under every shelf (hidden behind the price-tag
+		-- lips), each shining back onto the row beneath it. Their reach is short, so the
+		-- light leaves only through the window and never lands on the cabinet's outside.
+		for _, stripY in { 6.7, 5.86, 4.94, 4.02, 3.1 } do
+			local strip = k:span(
+				vending,
+				"LightStrip",
+				-96.76,
+				stripY - 0.05,
+				-20.25,
+				-96.66,
+				stripY,
+				-17.85,
+				P.neon(235, 245, 255)
+			)
+			-- Facing back into the machine, at the goods' fronts, never out of the glass.
+			local light = k:light(strip, "SurfaceLight", {
+				brightness = 1.1,
+				range = 1.8,
+				angle = 180,
+				color = Color3.fromRGB(225, 238, 255),
+				shadows = false,
+				side = "W",
+			})
+			light.Name = "VendingLight"
+		end
+		local rows = { "A", "B", "C", "D", "E" }
+		local snackColors = {
+			Color3.fromRGB(210, 40, 40),
+			Color3.fromRGB(240, 190, 40),
+			Color3.fromRGB(40, 110, 200),
+			Color3.fromRGB(60, 160, 70),
+			Color3.fromRGB(230, 110, 30),
+			Color3.fromRGB(120, 60, 160),
+			Color3.fromRGB(240, 240, 235),
+			Color3.fromRGB(30, 30, 34),
+		}
+		for row = 1, #rows do
+			local y = 2.25 + (row - 1) * 0.92
+			k:span(vending, "Tray", -97.85, y - 0.06, -20.3, front - 0.1, y, -17.8, P.dSteel)
+			local tag = k:span(
+				vending,
+				"PriceTag",
+				front - 0.12,
+				y - 0.2,
+				-20.25,
+				front - 0.1,
+				y - 0.04,
+				-17.85,
+				P.dBlack
+			)
+			k:text(
+				tag,
+				"E",
+				string.format("%s1   %s2   %s3   %s4", rows[row], rows[row], rows[row], rows[row]),
+				{
+					pps = 40,
+					color = Color3.fromRGB(230, 230, 220),
+					font = "RobotoMono",
+				}
+			)
+			for column = 1, 4 do
+				local cz = -17.8 - (column - 0.5) * 0.625
+				local color = snackColors[k:int(1, #snackColors)]
+				local item = {
+					color = color,
+					material = Kit.Enum.Material.SmoothPlastic,
+					collide = false,
+					shadow = false,
+				}
+				if row <= 2 then
+					-- Drinks: cans in the top rows, two deep.
+					for depth = 0, 1 do
+						local can = Kit.style(196, 198, 202, "Metal", { collide = false, shadow = false })
+						k:cyl(vending, "Can", -97.0 - depth * 0.45, y, cz, 0.36, 0.62, can)
+						k:cyl(vending, "CanLabel", -97.0 - depth * 0.45, y + 0.06, cz, 0.38, 0.5, item)
+					end
+				else
+					-- Snack packets standing up in a row, a thin wire guide under them.
+					for depth = 0, 2 do
+						k:box(vending, "Snack", -96.85 - depth * 0.32, y + 0.38, cz, 0.12, 0.7, 0.46, item)
+					end
+					local wire = Kit.style(160, 164, 168, "Metal", { collide = false, shadow = false })
+					k:cyl(vending, "Wire", -97.3, y, cz, 0.06, 1.1, wire, "x")
+				end
+			end
+		end
+		-- The window (solid: you cannot reach in) and its frame.
+		k:span(
+			vending,
+			"Window",
+			front - 0.06,
+			2.1,
+			-20.3,
+			front,
+			6.9,
+			-17.8,
+			Kit.style(190, 210, 220, "Glass", { alpha = 0.6, shadow = false })
+		)
+		k:span(vending, "FrameTop", front, 6.75, -20.35, front + 0.08, 6.9, -17.75, trim)
+		k:span(vending, "FrameBottom", front, 2.1, -20.35, front + 0.08, 2.25, -17.75, trim)
+		k:span(vending, "FrameLeft", front, 2.1, -17.85, front + 0.08, 6.9, -17.75, trim)
+		k:span(vending, "FrameRight", front, 2.1, -20.35, front + 0.08, 6.9, -20.25, trim)
+
+		-- Keypad column: display, a 3 x 4 grid of buttons, coin slot and note reader.
+		local display =
+			k:span(vending, "Display", front, 5.7, -21.7, front + 0.05, 6.3, -20.6, P.neon(40, 200, 120))
+		k:text(
+			display,
+			"E",
+			"SELECT",
+			{ glow = 1.2, color = Color3.fromRGB(10, 40, 20), font = "RobotoMono", pps = 40 }
+		)
+		local keys = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "0", "B" }
+		for index, label in keys do
+			local column = (index - 1) % 3
+			local row = (index - 1) // 3
+			local cz = -20.75 - column * 0.38
+			local cy = 5.35 - row * 0.38
+			local button = k:span(
+				vending,
+				"Button",
+				front,
+				cy - 0.15,
+				cz - 0.15,
+				front + 0.07,
+				cy + 0.15,
+				cz + 0.15,
+				P.dSteel
+			)
+			k:text(button, "E", label, { pps = 60, color = Color3.fromRGB(30, 30, 30), font = "GothamBold" })
+		end
+		k:span(vending, "CoinSlot", front, 3.65, -21.45, front + 0.06, 3.95, -21.25, P.dBlack)
+		k:span(vending, "CoinSlotLip", front, 3.6, -21.5, front + 0.04, 4.0, -21.2, P.dSteel)
+		k:span(vending, "NoteReader", front, 3.0, -21.6, front + 0.06, 3.35, -20.7, P.dBlack)
+		k:span(vending, "CoinReturn", front, 2.3, -21.4, front + 0.08, 2.6, -21.0, P.dSteel)
+
+		-- Pick-up flap under the window.
+		k:span(vending, "FlapRecess", front - 0.02, 0.6, -20.0, front + 0.01, 1.6, -18.1, P.dBlack)
+		k:span(vending, "Flap", front, 1.15, -20.0, front + 0.06, 1.6, -18.1, P.dSteel)
+		local push =
+			k:span(vending, "PushLabel", front + 0.06, 1.3, -19.35, front + 0.085, 1.45, -18.75, P.dWhite)
+		k:text(push, "E", "PUSH", { pps = 60, color = Color3.fromRGB(30, 30, 30) })
+	end
 
 	k:span(staff, "TableTop", -91, 2.8, -20, -81, 3.05, -15, P.wood)
 	for _, x in { -90.6, -81.8 } do

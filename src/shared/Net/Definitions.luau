@@ -18,6 +18,7 @@
 -- Only remotes that are actually used belong here.
 
 local Check = require(script.Parent.Check)
+local SettingsConfig = require(script.Parent.Parent.Config.SettingsConfig)
 
 export type Rate = {
 	burst: number,
@@ -94,6 +95,32 @@ local Definitions: { [string]: Definition } = {
 		from = "Client",
 		args = {},
 		rate = { burst = 3, perSecond = 2 },
+	},
+
+	-- Change one of the player's settings: (key, value 0..1). Saved by SettingsService.
+	SetSetting = {
+		kind = "Event",
+		from = "Client",
+		args = { Check.oneOf(SettingsConfig.Keys), Check.numberRange(0, 1) },
+		rate = { burst = 20, perSecond = 8 },
+	},
+
+	-- Main menu: play alone. The server moves the player to a private server of their
+	-- own (or simply lets them play where they are when they are already alone).
+	RequestSolo = {
+		kind = "Event",
+		from = "Client",
+		args = {},
+		rate = { burst = 2, perSecond = 0.2 },
+	},
+
+	-- Something strange happened (EventManager): (kind: string, data: table).
+	-- Clients play the sound / effect; anything that changes the world was already done
+	-- by the server.
+	HorrorEvent = {
+		kind = "Event",
+		from = "Server",
+		args = {},
 	},
 
 	-- The shift is over. Carries the results table shown on the results screen.

@@ -113,11 +113,58 @@ local function build(): ScreenGui
 		resultsBody,
 	})
 
+	-- A small dot in the middle of the screen: in first person it shows what you are
+	-- looking at, so prompts and objects are easy to aim for.
+	local crosshair = Theme.create("Frame", {
+		Name = "Crosshair",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0.5, 0, 0.5, 0),
+		Size = UDim2.new(0, 4, 0, 4),
+		BackgroundColor3 = Theme.Colors.Text,
+		BackgroundTransparency = 0.35,
+		BorderSizePixel = 0,
+	}, {
+		Theme.create("UICorner", { CornerRadius = UDim.new(1, 0) }),
+	})
+
+	-- A permanent soft darkening at the edges of the view: the night closes in.
+	local vignette = Theme.create("Frame", {
+		Name = "Vignette",
+		Size = UDim2.new(1, 0, 1, 0),
+		BackgroundTransparency = 1,
+		ZIndex = 0,
+	})
+	for _, edge in
+		{
+			{ UDim2.new(1, 0, 0.22, 0), UDim2.new(0, 0, 0, 0), 90 },
+			{ UDim2.new(1, 0, 0.22, 0), UDim2.new(0, 0, 0.78, 0), 270 },
+			{ UDim2.new(0.18, 0, 1, 0), UDim2.new(0, 0, 0, 0), 0 },
+			{ UDim2.new(0.18, 0, 1, 0), UDim2.new(0.82, 0, 0, 0), 180 },
+		}
+	do
+		Theme.create("Frame", {
+			Name = "Edge",
+			Size = edge[1],
+			Position = edge[2],
+			BackgroundColor3 = Color3.new(0, 0, 0),
+			BackgroundTransparency = 0.25,
+			BorderSizePixel = 0,
+			ZIndex = 0,
+			Parent = vignette,
+		}, {
+			Theme.create("UIGradient", {
+				Rotation = edge[3],
+				Transparency = NumberSequence.new(0.3, 1),
+			}),
+		})
+	end
+
 	return Theme.create("ScreenGui", {
 		Name = "HUD",
 		ResetOnSpawn = false,
 		DisplayOrder = 10,
-	}, { top, notifications, resultsPanel }) :: ScreenGui
+		IgnoreGuiInset = true,
+	}, { vignette, top, notifications, resultsPanel, crosshair }) :: ScreenGui
 end
 
 -- Redraws the clock and status from the replicated session state.
@@ -144,6 +191,10 @@ end
 
 -- Shows a short message at the bottom of the screen for a few seconds.
 function HudController.Notify(text: string, kind: string?)
+	-- New and finished tasks are shown as cards by the CinematicController.
+	if string.sub(text, 1, 14) == "Task complete:" or string.sub(text, 1, 10) == "New tasks:" then
+		return
+	end
 	local existing = notifications:GetChildren()
 	local shown = 0
 	for _, child in existing do
@@ -162,7 +213,9 @@ function HudController.Notify(text: string, kind: string?)
 
 	local label = Theme.label({
 		Name = "Notification",
+		-- Grows to fit long messages instead of cutting them off.
 		Size = UDim2.new(1, 0, 0, 30),
+		AutomaticSize = Enum.AutomaticSize.Y,
 		BackgroundTransparency = 0.3,
 		BackgroundColor3 = Theme.Colors.Panel,
 		TextColor3 = if kind == "Warning" then Theme.Colors.Warning else Theme.Colors.Text,
@@ -171,6 +224,13 @@ function HudController.Notify(text: string, kind: string?)
 		LayoutOrder = os.clock() * 1000,
 	})
 	Theme.create("UICorner", { CornerRadius = UDim.new(0, 6), Parent = label })
+	Theme.create("UIPadding", {
+		PaddingTop = UDim.new(0, 6),
+		PaddingBottom = UDim.new(0, 6),
+		PaddingLeft = UDim.new(0, 10),
+		PaddingRight = UDim.new(0, 10),
+		Parent = label,
+	})
 	label.Parent = notifications
 	task.delay(NOTIFICATION_SECONDS, function()
 		label:Destroy()

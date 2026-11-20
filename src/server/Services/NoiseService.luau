@@ -49,8 +49,11 @@ function NoiseService.Start()
 			NoiseService.Emit(door.Position, MonsterConfig.Noise.Door, "Door")
 		end
 	end)
-	CarryService.Dropped:Connect(function(_player: Player, item: BasePart)
-		NoiseService.Emit(item.Position, MonsterConfig.Noise.DropItem, "Drop")
+	CarryService.Dropped:Connect(function(_player: Player, item: BasePart, _kind: string, noisy: boolean)
+		-- Setting something down to hide, or losing it when caught, is not a noise.
+		if noisy then
+			NoiseService.Emit(item.Position, MonsterConfig.Noise.DropItem, "Drop")
+		end
 	end)
 
 	while true do

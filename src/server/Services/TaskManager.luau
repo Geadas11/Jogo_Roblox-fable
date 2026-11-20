@@ -176,6 +176,17 @@ function TaskManager.Issue(typeName: string, units: number): boolean
 		Notify = function(player: Player, text: string, kind: string?)
 			Net.FireClient(player, "Notify", text, kind or "Info")
 		end,
+		-- Changes the hint under the task title while it is running (e.g. which
+		-- breakers are still off) and tells every client.
+		SetDetail = function(text: string)
+			if task.Completed or task.Detail == text then
+				return
+			end
+			task.Detail = text
+			if table.find(tasks, task) then
+				broadcast()
+			end
+		end,
 	}
 
 	local ok, goal = xpcall(module.Begin, debug.traceback, task, units, context)
@@ -185,6 +196,8 @@ function TaskManager.Issue(typeName: string, units: number): boolean
 		return false
 	end
 	if type(goal) ~= "number" or goal <= 0 then
+		-- Nothing to do after all: remove whatever the module may have set up.
+		pcall(module.Cleanup, task)
 		return false
 	end
 

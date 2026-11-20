@@ -1,6 +1,9 @@
 --!strict
 -- Puts the tools players need for their work where the map says they are kept
 -- (tag: ToolPickup). Currently: mops by the bucket in the maintenance room.
+--
+-- Tools left lying around the store go back to their station at the start of every
+-- shift, so a mop dropped in the parking lot last night never makes spills impossible.
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -11,10 +14,14 @@ local GameConfig = require(Shared.Config.GameConfig)
 local Tags = require(Shared.Config.Tags)
 local Log = require(Shared.Util.Log)
 local CarryService = require(script.Parent.CarryService)
+local GameManager = require(script.Parent.GameManager)
 
 local log = Log.new("Tools")
 
 local ToolService = {}
+
+-- Every tool created here and where it is kept.
+local homes: { [BasePart]: CFrame } = {}
 
 local function createMop(position: Vector3): BasePart
 	local mop = Instance.new("Part")
@@ -25,6 +32,16 @@ local function createMop(position: Vector3): BasePart
 	mop.CFrame = CFrame.new(position)
 	mop.Parent = Workspace
 	return mop
+end
+
+-- Puts every tool nobody is holding back at its station.
+function ToolService.ReturnAll()
+	for tool, home in homes do
+		if tool.Parent and tool:GetAttribute("CarriedBy") == nil then
+			tool.CFrame = home
+			tool.Anchored = true
+		end
+	end
 end
 
 function ToolService.Start()
@@ -38,6 +55,7 @@ function ToolService.Start()
 				local mop =
 					createMop(Vector3.new(station.Position.X, floor + 2.5, station.Position.Z) + offset)
 				CarryService.Register(mop, "Mop")
+				homes[mop] = mop.CFrame
 				mops += 1
 			end
 		end
@@ -45,6 +63,12 @@ function ToolService.Start()
 	if mops == 0 then
 		log:Warn("The map has no mop station: spills cannot be cleaned")
 	end
+
+	GameManager.PhaseChanged:Connect(function(phase: string)
+		if phase == "Lobby" then
+			ToolService.ReturnAll()
+		end
+	end)
 end
 
 return ToolService
