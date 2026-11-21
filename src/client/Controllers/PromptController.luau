@@ -42,10 +42,14 @@ local function createPrompt(
 ): () -> ()
 	local touch = inputType == Enum.ProximityPromptInputType.Touch
 
+	-- The key sits a few pixels in from the prompt's left edge: the outline drawn round it
+	-- reaches past the key, and a BillboardGui cuts off anything outside its own box (that
+	-- hid the left side of the outline).
+	local INSET = 6
 	local cap = Theme.label({
 		Name = "Key",
 		AnchorPoint = Vector2.new(0, 0.5),
-		Position = UDim2.new(0, 0, 0.5, 0),
+		Position = UDim2.new(0, INSET, 0.5, 0),
 		Size = UDim2.new(0, if touch then 44 else 30, 0, 30),
 		BackgroundTransparency = 0.05,
 		BackgroundColor3 = Theme.Colors.Text,
@@ -57,59 +61,66 @@ local function createPrompt(
 	})
 	Theme.create("UICorner", { CornerRadius = UDim.new(0, 5), Parent = cap })
 
-	-- While the key is held, an outline draws itself around the key: it starts at the
-	-- middle of the bottom edge and runs up both sides until the two ends meet at the top.
+	-- While the key is held, an outline draws itself around the key as two lines: both
+	-- start together at the middle of the bottom edge, run out to the bottom corners, up
+	-- the two sides and along the top, and meet in the middle of the top edge.
+	-- Everything is placed in exact pixels from the ring's top-left corner (no anchors or
+	-- scales), so each piece is exactly where the path says.
 	local THICK = 3
+	local capWidth = if touch then 44 else 30
+	local capHeight = 30
+	local ringWidth = capWidth + (THICK + 1) * 2
+	local ringHeight = capHeight + (THICK + 1) * 2
 	local ring = Theme.create("Frame", {
 		Name = "Ring",
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.new(0.5, 0, 0.5, 0),
-		Size = UDim2.new(1, THICK * 2 + 2, 1, THICK * 2 + 2),
+		Position = UDim2.new(0, -(THICK + 1), 0, -(THICK + 1)),
+		Size = UDim2.new(0, ringWidth, 0, ringHeight),
 		BackgroundTransparency = 1,
+		-- Only for prompts you hold (hide, restock...); a door is just a press.
 		Visible = prompt.HoldDuration > 0,
 		ZIndex = 3,
 	}) :: Frame
 	ring.Parent = cap
-	local function edge(name: string, anchor: Vector2, position: UDim2): Frame
+	local function edge(name: string): Frame
 		return Theme.create("Frame", {
 			Name = name,
-			AnchorPoint = anchor,
-			Position = position,
 			Size = UDim2.new(0, 0, 0, 0),
 			BackgroundColor3 = Theme.Colors.Warning,
 			BorderSizePixel = 0,
+			Visible = false,
 			ZIndex = 3,
 			Parent = ring,
 		}) :: Frame
 	end
-	-- Each side's path: bottom half (from the centre outwards), the side (upwards),
-	-- top half (inwards to the centre). Mirrored for the left.
 	local paths = {}
 	for _, side in { 1, -1 } do
-		local right = side == 1
-		table.insert(paths, {
-			Bottom = edge("Bottom", Vector2.new(if right then 0 else 1, 1), UDim2.new(0.5, 0, 1, 0)),
-			Side = edge(
-				"Side",
-				Vector2.new(if right then 1 else 0, 1),
-				UDim2.new(if right then 1 else 0, 0, 1, 0)
-			),
-			Top = edge(
-				"Top",
-				Vector2.new(if right then 1 else 0, 0),
-				UDim2.new(if right then 1 else 0, 0, 0, 0)
-			),
-		})
+		table.insert(paths, { Side = side, Bottom = edge("Bottom"), Up = edge("Up"), Top = edge("Top") })
+	end
+	local half = ringWidth / 2
+	local length = half + ringHeight + half
+	-- Shows `frame` as the rectangle x, y, w, h (pixels), or hides it when empty.
+	local function place(frame: Frame, x: number, y: number, w: number, h: number)
+		frame.Visible = w > 0.5 and h > 0.5
+		frame.Position = UDim2.new(0, math.floor(x + 0.5), 0, math.floor(y + 0.5))
+		frame.Size = UDim2.new(0, math.ceil(w), 0, math.ceil(h))
 	end
 	local function drawRing(t: number)
-		-- A quarter of each path along the bottom, half up the side, a quarter on top.
-		local bottom = math.clamp(t / 0.25, 0, 1)
-		local up = math.clamp((t - 0.25) / 0.5, 0, 1)
-		local top = math.clamp((t - 0.75) / 0.25, 0, 1)
+		local done = math.clamp(t, 0, 1) * length
+		local bottom = math.clamp(done, 0, half)
+		local up = math.clamp(done - half, 0, ringHeight)
+		local top = math.clamp(done - half - ringHeight, 0, half)
 		for _, path in paths do
-			path.Bottom.Size = UDim2.new(0.5 * bottom, 0, 0, if bottom > 0 then THICK else 0)
-			path.Side.Size = UDim2.new(0, if up > 0 then THICK else 0, up, 0)
-			path.Top.Size = UDim2.new(0.5 * top, 0, 0, if top > 0 then THICK else 0)
+			if path.Side == 1 then
+				-- Right: from the bottom middle to the right, up the right side, then left.
+				place(path.Bottom, half, ringHeight - THICK, bottom, THICK)
+				place(path.Up, ringWidth - THICK, ringHeight - up, THICK, up)
+				place(path.Top, ringWidth - top, 0, top, THICK)
+			else
+				-- Left: the mirror image.
+				place(path.Bottom, half - bottom, ringHeight - THICK, bottom, THICK)
+				place(path.Up, 0, ringHeight - up, THICK, up)
+				place(path.Top, 0, 0, top, THICK)
+			end
 		end
 	end
 	drawRing(0)
@@ -118,7 +129,7 @@ local function createPrompt(
 
 	local action = Theme.label({
 		Name = "Action",
-		Position = UDim2.new(0, if touch then 54 else 40, 0, 2),
+		Position = UDim2.new(0, INSET + (if touch then 54 else 40), 0, 2),
 		Size = UDim2.new(1, -40, 0, 20),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		FontFace = Theme.Fonts.Title,
@@ -129,7 +140,7 @@ local function createPrompt(
 	})
 	local object = Theme.label({
 		Name = "Object",
-		Position = UDim2.new(0, if touch then 54 else 40, 0, 22),
+		Position = UDim2.new(0, INSET + (if touch then 54 else 40), 0, 22),
 		Size = UDim2.new(1, -40, 0, 14),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextSize = 13,

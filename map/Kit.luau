@@ -325,6 +325,18 @@ function Kit:door(parent, name, wallAxis, at, from, to, swing, hingeAtFrom, styl
 	part.CFrame = if closed then closedCFrame else openCFrame
 	self:_apply(part, style)
 	part.Parent = parent
+
+	-- Three hinge knuckles on the hinge edge (the leaf turns about them: DoorService).
+	local knuckle = {
+		color = Color3.fromRGB(64, 64, 68),
+		material = Enum.Material.Metal,
+		collide = false,
+		shadow = false,
+	}
+	for _, y in { 1.1, height / 2, height - 1.1 } do
+		local hx, hz = if wallAxis == "x" then hinge else at, if wallAxis == "x" then at else hinge
+		self:cyl(parent, "Hinge", hx, y - 0.25, hz, thick * 0.75, 0.5, knuckle)
+	end
 	self:mark(part, "Door", {
 		ClosedCFrame = closedCFrame,
 		OpenCFrame = openCFrame,

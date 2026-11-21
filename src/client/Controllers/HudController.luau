@@ -250,8 +250,17 @@ local function showResults(results: any)
 	resultsTitle.Text = if results.Completed then "SHIFT COMPLETE" else "SHIFT ENDED"
 	local reason = tostring(results.Reason or "")
 	resultsTitle.TextColor3 = if results.Completed then Theme.Colors.Good else Theme.Colors.Accent
+	local suspicious = ""
+	if (tonumber(results.SuspiciousTotal) or 0) > 0 or (tonumber(results.WrongExpels) or 0) > 0 then
+		suspicious = string.format(
+			"Suspicious customers sent away: %d of %d\nOrdinary customers sent away: %d\n",
+			tonumber(results.SuspiciousExpelled) or 0,
+			tonumber(results.SuspiciousTotal) or 0,
+			tonumber(results.WrongExpels) or 0
+		)
+	end
 	resultsBody.Text = string.format(
-		"%sClocked out at %s\nHours worked: %d\nTime on shift: %d:%02d\nTasks completed: %d of %d\nEarned: $%d\nCaught: %d\n\nReturning to the employee room...",
+		"%sClocked out at %s\nHours worked: %d\nTime on shift: %d:%02d\nTasks completed: %d of %d\nEarned: $%d\nCaught: %d\n%s\nReturning to the employee room...",
 		if reason ~= "" then reason .. "\n\n" else "",
 		tostring(results.ClockOutTime or ""),
 		tonumber(results.HoursWorked) or 0,
@@ -260,7 +269,8 @@ local function showResults(results: any)
 		tonumber(results.TasksCompleted) or 0,
 		tonumber(results.TasksTotal) or 0,
 		tonumber(results.Earnings) or 0,
-		tonumber(results.Deaths) or 0
+		tonumber(results.Deaths) or 0,
+		suspicious
 	)
 	clockLabel.Text = tostring(results.ClockOutTime or "")
 	resultsPanel.Visible = true

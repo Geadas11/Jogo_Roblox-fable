@@ -393,3 +393,58 @@ test("the whole session runs without a single warning", function()
 	server.load(SERVICES .. "GameManager").ReturnToLobby()
 	expect.equal(#world.lines("warn"), 0, "warnings: " .. table.concat(world.lines("warn"), " | "))
 end)
+
+-- Security cameras -------------------------------------------------------------------------
+
+test("the cameras are watched from the office computer and the staff-room monitor", function()
+	local world = boot()
+	local computer = tagged(world, "OfficeComputer")[1]
+	expect.equal(promptOf(computer).ActionText, "Watch cameras")
+	local staffRoom = 0
+	for _, monitor in tagged(world, "SecurityMonitor") do
+		if monitor:GetAttribute("Zone") ~= "Office" then
+			staffRoom += 1
+			expect.equal(promptOf(monitor).ActionText, "Watch cameras")
+		else
+			expect.equal(promptOf(monitor), nil, "the office wall is watched from the computer")
+		end
+	end
+	expect.equal(staffRoom, 1)
+end)
+
+test("watching the cameras: feeds on screen, standing still, until you look away", function()
+	local world = boot()
+	local player, client = join(world, "Tester", 1)
+	clockIn(world, player)
+	task.wait(0.3) -- interaction cooldown
+	local cctv = client.load("StarterPlayer.StarterPlayerScripts.Client.Controllers.CctvController")
+	local computer = tagged(world, "OfficeComputer")[1]
+
+	world.moveTo(player, computer)
+	world.trigger(promptOf(computer), player)
+	expect.equal(player:GetAttribute("WatchingCameras"), true)
+	expect.truthy(cctv.IsWatching())
+	expect.equal(player.PlayerGui.Cameras.Enabled, true)
+	expect.truthy(string.find(player.PlayerGui.Cameras.CameraName.Text, "CAM 01", 1, true))
+
+	world.fireServerAs(player, "LeaveCameras")
+	expect.equal(player:GetAttribute("WatchingCameras"), false)
+	expect.falsy(cctv.IsWatching())
+	expect.equal(player.PlayerGui.Cameras.Enabled, false)
+	expect.equal(#world.lines("warn"), 0, "warnings: " .. table.concat(world.lines("warn"), " | "))
+end)
+
+test("being caught or the shift ending takes you off the cameras", function()
+	local world, server = boot()
+	local player, client = join(world, "Tester", 1)
+	clockIn(world, player)
+	task.wait(0.3) -- interaction cooldown
+	local cctv = client.load("StarterPlayer.StarterPlayerScripts.Client.Controllers.CctvController")
+	local computer = tagged(world, "OfficeComputer")[1]
+	world.moveTo(player, computer)
+	world.trigger(promptOf(computer), player)
+	expect.truthy(cctv.IsWatching())
+	player:SetAttribute("Status", "Caught")
+	expect.equal(player:GetAttribute("WatchingCameras"), false)
+	expect.falsy(cctv.IsWatching())
+end)

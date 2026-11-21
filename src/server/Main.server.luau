@@ -34,6 +34,7 @@ local SERVICE_ORDER = {
 	"MonsterManager",
 	"EventManager",
 	"CustomerManager",
+	"CameraService",
 }
 
 local log = Log.new("Main")

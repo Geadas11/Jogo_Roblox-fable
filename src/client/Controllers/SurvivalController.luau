@@ -198,23 +198,27 @@ end
 
 -- Running ------------------------------------------------------------------------------------
 
--- Your own breathing. Below 30% stamina while running you start to pant; when it runs
--- out you gasp; after you stop, the panting slowly eases as you get your breath back.
+-- Your own breathing: only right at the end of your stamina. Running on the last 18% of
+-- it you start to pant (full in the last 10%); when it runs out you gasp and keep
+-- panting while you are spent. The moment the stamina starts coming back the panting
+-- fades out within half a second.
 local panting: Sound? = nil
 local breathLevel = 0
 local gasped = false
+local BREATH_FROM = 0.18
+local BREATH_FULL = 0.1
 
 local function breathe(dt: number, running: boolean)
 	local config = MonsterConfig.Player
 	local share = stamina / config.StaminaSeconds
 	local target = 0
-	if share < 0.3 and running then
+	if stamina <= 0.001 then
+		-- Spent: heavy breathing until the stamina starts to come back.
 		target = 1
-	elseif share < 0.75 and os.clock() - lastRunAt < 12 then
-		-- Recovering: heavy at first, easing as the stamina comes back.
-		target = math.clamp((0.75 - share) / 0.45, 0, 1)
+	elseif running and share < BREATH_FROM then
+		target = math.clamp((BREATH_FROM - share) / (BREATH_FROM - BREATH_FULL), 0, 1)
 	end
-	breathLevel += (target - breathLevel) * math.min(1, dt * (if target > breathLevel then 3 else 0.8))
+	breathLevel += (target - breathLevel) * math.min(1, dt * (if target > breathLevel then 3 else 6))
 
 	if stamina <= 0 and not gasped then
 		gasped = true
@@ -253,7 +257,9 @@ function SurvivalController.UpdateRunning(dt: number, wantsToRun: boolean)
 		)
 	end
 	if found then
-		found.WalkSpeed = if running then config.RunSpeed else config.WalkSpeed
+		-- At the monitor watching the cameras you stand still (and so does your back).
+		local watchingCameras = Players.LocalPlayer:GetAttribute("WatchingCameras") == true
+		found.WalkSpeed = if watchingCameras then 0 elseif running then config.RunSpeed else config.WalkSpeed
 	end
 	staminaBar.Visible = stamina < config.StaminaSeconds - 0.01
 	staminaFill.Size = UDim2.new(stamina / config.StaminaSeconds, 0, 1, 0)
@@ -332,6 +338,47 @@ local function faceOutOfSpot()
 	end
 end
 
+-- The way into the room you are hiding in: its door (same Zone), so the first thing
+-- you see from under the desk is the doorway, where it would come in. You can still
+-- look around afterwards.
+local function lookAtDoor()
+	local camera = Workspace.CurrentCamera
+	local character = Players.LocalPlayer.Character
+	local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
+	if not camera or not root or not root:IsA("BasePart") then
+		return
+	end
+	local zone = nil
+	local closest = 6
+	for _, spot in CollectionService:GetTagged("HidingSpot") do
+		if spot:IsA("BasePart") then
+			local distance = (spot.Position - root.Position).Magnitude
+			if distance < closest then
+				closest = distance
+				zone = spot:GetAttribute("Zone")
+			end
+		end
+	end
+	local target: Vector3? = nil
+	local nearestDoor = math.huge
+	for _, door in CollectionService:GetTagged("Door") do
+		if door:IsA("BasePart") and door:GetAttribute("Zone") == zone then
+			local closedPose = door:GetAttribute("ClosedCFrame")
+			local position = if typeof(closedPose) == "CFrame" then closedPose.Position else door.Position
+			local distance = (position - root.Position).Magnitude
+			if distance < nearestDoor then
+				nearestDoor = distance
+				target = position
+			end
+		end
+	end
+	if target and camera.CameraType == Enum.CameraType.Custom then
+		local eye = camera.CFrame.Position
+		-- Level with the eyes, a little up: the middle of the doorway.
+		camera.CFrame = CFrame.lookAt(eye, Vector3.new(target.X, eye.Y + 0.6, target.Z))
+	end
+end
+
 function SurvivalController.Refresh()
 	local current = status()
 	hidingPanel.Visible = current == "Hiding"
@@ -340,6 +387,8 @@ function SurvivalController.Refresh()
 		-- Again a moment later, once the body has stopped turning with the camera.
 		task.defer(faceOutOfSpot)
 		task.delay(0.25, faceOutOfSpot)
+		-- Once the camera has settled down at the eyes, turn it to the door.
+		task.delay(0.35, lookAtDoor)
 	end
 	for _, child in hidingPanel:GetChildren() do
 		if child:IsA("Frame") then

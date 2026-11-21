@@ -23,6 +23,13 @@ local log = Log.new("Hiding")
 -- Seconds before a player who just came out can hide again.
 local REHIDE_COOLDOWN = 1.5
 
+-- What the prompt names under "Hide", by kind of spot.
+local HIDE_NAMES: { [string]: string } = {
+	Locker = "Locker",
+	UnderDesk = "Under the desk",
+	Stall = "Toilet stall",
+}
+
 export type Spot = {
 	Id: number,
 	Part: BasePart,
@@ -170,8 +177,9 @@ function HidingService.Start()
 		local spot: Spot
 		local prompt = InteractionService.AddPrompt(part, {
 			action = "Hide",
-			object = if part:GetAttribute("Kind") == "UnderDesk" then "Under the desk" else "",
-			hold = 0.4,
+			object = HIDE_NAMES[tostring(part:GetAttribute("Kind") or "Locker")] or "",
+			-- Quick (it is how you escape), but long enough to see the ring fill.
+			hold = 0.7,
 			distance = 7,
 		}, function(player: Player)
 			HidingService.Hide(player, spot)

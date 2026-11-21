@@ -161,6 +161,8 @@ return function(k, root)
 	wallLight(lot, "FrontLightEast", 80, 12, 80.5, "S", "ParkingLot")
 	wallLight(back, "BackDoorLight", -7.5, 9, -80.5, "N", "BackLot")
 	wallLight(back, "DockLight", -56, 13.5, -80.5, "N", "BackLot", true)
+	-- Over the dumpsters: without it the trash run ends in pitch darkness.
+	wallLight(back, "DumpsterLight", 30, 10, -80.5, "N", "BackLot")
 	wallLight(alleys, "EastAlleyLight", 100.5, 11, 54.5, "E", "EastAlley")
 	wallLight(alleys, "WestAlleyLight", -100.5, 11, -20, "W", "WestAlley", true)
 

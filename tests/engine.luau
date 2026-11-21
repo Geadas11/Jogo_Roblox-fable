@@ -72,6 +72,7 @@ local CLASS_SIGNALS = {
 	UserInputService = { InputBegan = true, InputEnded = true, InputChanged = true },
 	RunService = { RenderStepped = true, Heartbeat = true, Stepped = true },
 	Sound = { Ended = true },
+	NumberValue = { Changed = true },
 }
 
 -- Property values an instance has before anything sets them (only those the project reads).
@@ -79,7 +80,7 @@ local DEFAULTS = {
 	ProximityPrompt = { Enabled = true },
 	Humanoid = { Health = 100, WalkSpeed = 16, MoveDirection = roblox.Vector3.new(0, 0, 0) },
 	UserInputService = { TouchEnabled = false },
-	Camera = { CFrame = roblox.CFrame.new(0, 5, 0) },
+	Camera = { CFrame = roblox.CFrame.new(0, 5, 0), FieldOfView = 70 },
 	Part = {
 		Anchored = false,
 		Transparency = 0,
@@ -338,6 +339,13 @@ function Engine.new(options)
 			end
 		elseif key == "Position" and builtinTypeof(value) == "Vector3" then
 			rawget(instance, "_props").CFrame = roblox.CFrame.new(value)
+		elseif key == "Value" and rawget(instance, "_class") == "NumberValue" then
+			-- Like Roblox's ValueBase: Changed fires with the new value.
+			local changed = rawget(instance, "_props").Value ~= value
+			rawget(instance, "_props").Value = value
+			if changed then
+				getSignal(instance, "Changed"):_fire(value)
+			end
 		else
 			rawget(instance, "_props")[key] = value
 		end
@@ -869,6 +877,8 @@ function Engine.new(options)
 				NumberSequenceKeypoint = roblox.NumberSequenceKeypoint,
 				Vector2 = roblox.Vector2,
 				CFrame = roblox.CFrame,
+				PhysicalProperties = roblox.PhysicalProperties,
+				NumberRange = roblox.NumberRange,
 				UDim = roblox.UDim,
 				UDim2 = roblox.UDim2,
 				Font = roblox.Font,

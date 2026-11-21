@@ -62,6 +62,7 @@ type Rig = {
 	Move: number, -- 0 = standing, 1 = full stride
 	Run: number, -- 0 = walking, 1 = running
 	Carry: number,
+	Hold: number, -- 0..1: a bin bag in the right hand
 	GlanceYaw: number,
 	GlanceTarget: number,
 	NextGlance: number,
@@ -91,6 +92,15 @@ local CURL = {
 	LeftShoulder = CFrame.Angles(1.7, 0, 0.3),
 	Elbow = CFrame.Angles(1.4, 0, 0),
 }
+-- The "HeadTilt" anomaly: the head lolls over sideways and a little back.
+local HEAD_TILT = CFrame.Angles(0.25, 0, 1.25)
+
+-- Holding a bin bag by its knot: the right arm raised forward, the elbow a little bent.
+-- (Lower than straight out: a raised arm sits right beside the first-person camera and
+-- fills the corner of the screen.)
+local HOLD_SHOULDER = 1.05
+local HOLD_ELBOW = 0.25
+
 -- Where the eyes are in that pose, as a camera offset (relative to the standing view).
 local CURL_EYES = Vector3.new(0, -0.66, -1.3)
 
@@ -139,6 +149,7 @@ local function track(model: Model, player: Player?)
 		Move = 0,
 		Run = 0,
 		Carry = 0,
+		Hold = 0,
 		GlanceYaw = 0,
 		GlanceTarget = 0,
 		NextGlance = os.clock() + math.random(3, 7),
@@ -179,8 +190,9 @@ local function pose(rig: Rig, dt: number, now: number)
 	if steps then
 		local walking = speed > 1 and onFloor
 		local runAmount = math.clamp((speed - 9) / 6, 0, 1)
-		steps.PlaybackSpeed = math.clamp(speed / 10, 0.6, 1.25)
-		steps.Volume = if walking then AudioConfig.Sounds.Footsteps.Volume * (0.7 + 0.8 * runAmount) else 0
+		-- Running: quicker steps, only a little louder (heavy, loud steps are the monster's).
+		steps.PlaybackSpeed = math.clamp(speed / 10, 0.6, 1.15)
+		steps.Volume = if walking then AudioConfig.Sounds.Footsteps.Volume * (0.7 + 0.25 * runAmount) else 0
 		if walking and not steps.IsPlaying then
 			steps:Play()
 		elseif not walking and steps.IsPlaying then
@@ -194,11 +206,13 @@ local function pose(rig: Rig, dt: number, now: number)
 
 	rig.Move = ease(rig.Move, math.clamp(speed / 5, 0, 1), 8, dt)
 	rig.Run = ease(rig.Run, math.clamp((speed - 10) / 4, 0, 1), 6, dt)
-	local carrying = rig.Player ~= nil
-			and (rig.Player :: Player):GetAttribute("Carrying") ~= nil
-			and (rig.Player :: Player):GetAttribute("Carrying") ~= ""
+	-- What is in their hands: a box in both arms, or a bin bag hanging from the right hand.
+	local carriedKind = if rig.Player then (rig.Player :: Player):GetAttribute("Carrying") else nil
+	local holdingBag = carriedKind == "Trash"
+	local carrying = (type(carriedKind) == "string" and carriedKind ~= "" and not holdingBag)
 		or rig.Model:GetAttribute("Carrying") == true
 	rig.Carry = ease(rig.Carry, if carrying then 1 else 0, 10, dt)
+	rig.Hold = ease(rig.Hold, if holdingBag then 1 else 0, 10, dt)
 
 	-- One full stride cycle (two steps) per this many studs: longer when running.
 	local cycleLength = 4.6 + 2.6 * rig.Run
@@ -247,6 +261,12 @@ local function pose(rig: Rig, dt: number, now: number)
 	-- Carrying: both arms forward around the item, elbows a little bent.
 	local carryShoulder = 1.25 * carry
 	local carryElbow = 0.35 * carry
+	-- Holding a bag: the right arm out in front, the hand up at the knot (CarryService
+	-- hangs the bag there); it stops swinging. The left arm swings as usual.
+	local hold = rig.Hold
+	local rightSwing = armAmp * (1 - hold)
+	local holdShoulder = HOLD_SHOULDER * hold
+	local holdElbow = HOLD_ELBOW * hold
 
 	-- Curled up on the floor under a desk: sitting, knees drawn up, arms around them,
 	-- back hunched, face up to watch the room. Blended in and out.
@@ -269,7 +289,15 @@ local function pose(rig: Rig, dt: number, now: number)
 			"Waist",
 			blend(CFrame.Angles(-0.05 * run * move + breath * 0.02, -s * 0.08 * move, 0), CURL.Waist)
 		)
-		set(rig, "Neck", blend(CFrame.Angles(lean * 0.6 + breath * 0.015, rig.GlanceYaw, 0), CURL.Neck))
+		-- A suspicious customer's head hanging over at an angle no neck allows.
+		local headTilt = if rig.Model:GetAttribute("Anomaly") == "HeadTilt"
+			then HEAD_TILT
+			else CFrame.identity
+		set(
+			rig,
+			"Neck",
+			blend(CFrame.Angles(lean * 0.6 + breath * 0.015, rig.GlanceYaw, 0), CURL.Neck) * headTilt
+		)
 		set(rig, "RightHip", blend(CFrame.Angles(-s * hipAmp, 0, 0), CURL.RightHip))
 		set(rig, "LeftHip", blend(CFrame.Angles(s * hipAmp, 0, 0), CURL.LeftHip))
 		set(rig, "RightKnee", blend(CFrame.Angles(-kneeRight, 0, 0), CURL.Knee))
@@ -277,7 +305,14 @@ local function pose(rig: Rig, dt: number, now: number)
 		set(
 			rig,
 			"RightShoulder",
-			blend(CFrame.Angles(s * armAmp + carryShoulder, 0, 0.04 * (1 - carry)), CURL.RightShoulder)
+			blend(
+				CFrame.Angles(
+					s * rightSwing + carryShoulder + holdShoulder,
+					0,
+					0.04 * (1 - carry) - 0.12 * hold
+				),
+				CURL.RightShoulder
+			)
 		)
 		set(
 			rig,
@@ -287,7 +322,17 @@ local function pose(rig: Rig, dt: number, now: number)
 		set(
 			rig,
 			"RightElbow",
-			blend(CFrame.Angles(elbowBase * move + math.max(0, s) * 0.3 * run + carryElbow, 0, 0), CURL.Elbow)
+			blend(
+				CFrame.Angles(
+					elbowBase * move * (1 - hold)
+						+ math.max(0, s) * 0.3 * run * (1 - hold)
+						+ carryElbow
+						+ holdElbow,
+					0,
+					0
+				),
+				CURL.Elbow
+			)
 		)
 		set(
 			rig,
@@ -304,7 +349,10 @@ local function pose(rig: Rig, dt: number, now: number)
 		set(
 			rig,
 			"RightShoulder",
-			blend(CFrame.Angles(0, 0, s * (armAmp + 0.1 * move) + carryShoulder), CFrame.Angles(0, 0, 1.2))
+			blend(
+				CFrame.Angles(0, 0, s * (rightSwing + 0.1 * move * (1 - hold)) + carryShoulder + 1.4 * hold),
+				CFrame.Angles(0, 0, 1.2)
+			)
 		)
 		set(
 			rig,
@@ -351,12 +399,21 @@ local function firstPerson(dt: number)
 		return
 	end
 	local firstPersonView = (camera.CFrame.Position - head.Position).Magnitude < 2
+	-- Holding a bag out in front, the right arm passes right beside the camera and would
+	-- fill the corner of the screen: you see your hand and the bag, the rest of the arm
+	-- is hidden (on your own screen only).
+	local holding = rigs[character] ~= nil and rigs[character].Hold > 0.5
 	for _, descendant in character:GetDescendants() do
 		if descendant:IsA("BasePart") then
 			-- Roblox hides the whole body in first person; show everything but the head.
-			descendant.LocalTransparencyModifier = if firstPersonView and onHead(descendant, head)
-				then 1
-				else 0
+			local hidden = firstPersonView
+				and (
+					onHead(descendant, head)
+					or (
+						holding and (descendant.Name == "RightUpperArm" or descendant.Name == "RightLowerArm")
+					)
+				)
+			descendant.LocalTransparencyModifier = if hidden then 1 else 0
 		end
 	end
 
@@ -370,11 +427,14 @@ local function firstPerson(dt: number)
 	if rig and Settings.Get("CameraShake") >= 0.5 then
 		bobTime += dt
 		rig.StepDip = math.max(0, rig.StepDip - dt * 6)
-		local amount = rig.Move * (0.13 + 0.2 * rig.Run)
+		-- Running is only a little stronger than walking: more would get in the way of
+		-- seeing where you are going.
+		-- Kept small: enough to feel the steps, never enough to shake the view.
+		local amount = rig.Move * (0.05 + 0.02 * rig.Run)
 		local rise = math.abs(math.sin(rig.Phase)) - 0.5
-		local dip = rig.StepDip * rig.StepDip * rig.Move * (0.05 + 0.1 * rig.Run)
-		bob = Vector3.new(math.cos(rig.Phase) * amount * 0.45, rise * amount - dip, 0)
-		roll = math.cos(rig.Phase) * rig.Move * math.rad(0.7 + 1.1 * rig.Run)
+		local dip = rig.StepDip * rig.StepDip * rig.Move * (0.015 + 0.01 * rig.Run)
+		bob = Vector3.new(math.cos(rig.Phase) * amount * 0.3, rise * amount - dip, 0)
+		roll = math.cos(rig.Phase) * rig.Move * math.rad(0.25 + 0.1 * rig.Run)
 	end
 	local eyes = Vector3.new(0, -0.1, -0.85)
 	if rig then

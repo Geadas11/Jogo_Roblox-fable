@@ -107,8 +107,6 @@ local function menuButton(text: string, order: number, parent: Instance, onClick
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Text = text,
 		LayoutOrder = order,
-		-- Frees the mouse from the first-person lock while the menu is up.
-		Modal = true,
 		Parent = parent,
 	}, {
 		Theme.create("UIPadding", { PaddingLeft = UDim.new(0, 14) }),
@@ -139,8 +137,6 @@ local function smallButton(text: string, properties: { [string]: any }, onClick:
 		TextColor3 = Theme.Colors.Text,
 		TextSize = 16,
 		Text = text,
-		-- Frees the mouse from the first-person lock while this button is on screen.
-		Modal = true,
 	}
 	for key, value in properties do
 		defaults[key] = value
@@ -455,7 +451,13 @@ end
 
 -- Pages -------------------------------------------------------------------------------------------
 
-local function buildWarning(onContinue: () -> ())
+-- The warning shows on its own and moves on: it fades in, stays long enough to read
+-- (about 6.5 seconds in all), fades out, and the menu comes up. No button to skip it.
+local WARNING_FADE = 1.2
+local WARNING_HOLD = 4.3
+local warningTexts: { TextLabel } = {}
+
+local function buildWarning()
 	warningPage = page("Warning")
 	Theme.create("Frame", {
 		Name = "Back",
@@ -479,33 +481,49 @@ local function buildWarning(onContinue: () -> ())
 			Padding = UDim.new(0, 14),
 		}),
 	})
-	Theme.label({
+	local title = Theme.label({
 		Name = "Title",
 		Size = UDim2.new(1, 0, 0, 40),
 		FontFace = Theme.Fonts.Title,
 		TextSize = 30,
 		TextColor3 = Theme.Colors.Accent,
+		TextTransparency = 1,
 		Text = "WARNING",
 		LayoutOrder = 1,
 		Parent = box,
-	})
-	Theme.label({
+	}) :: TextLabel
+	local body = Theme.label({
 		Name = "Body",
 		Size = UDim2.new(1, 0, 0, 150),
 		TextSize = 18,
 		TextColor3 = Theme.Colors.Text,
+		TextTransparency = 1,
 		Text = "This game contains horror themes, dark environments, sudden loud sounds and "
 			.. "flashing lights that may not be suitable for players with photosensitive "
 			.. "epilepsy.\n\nFlashing can be reduced in Settings.\nHeadphones are recommended.",
 		LayoutOrder = 2,
 		Parent = box,
-	})
-	smallButton("I UNDERSTAND", {
-		Name = "Continue",
-		Size = UDim2.new(0, 220, 0, 46),
-		LayoutOrder = 3,
-		Parent = box,
-	}, onContinue)
+	}) :: TextLabel
+	warningTexts = { title, body }
+end
+
+-- Fades the warning in, holds it, fades it out, then calls `after`.
+local function playWarning(after: () -> ())
+	task.spawn(function()
+		local info = TweenInfo.new(WARNING_FADE, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+		for _, text in warningTexts do
+			TweenService:Create(text, info, { TextTransparency = 0 }):Play()
+		end
+		task.wait(WARNING_FADE + WARNING_HOLD)
+		for _, text in warningTexts do
+			TweenService:Create(text, info, { TextTransparency = 1 }):Play()
+		end
+		task.wait(WARNING_FADE + 0.3)
+		-- Someone may have chosen a mode in the meantime (tests, a teleport arrival).
+		if inMenu and warningPage.Visible then
+			after()
+		end
+	end)
 end
 
 local function buildMenu(onSolo: () -> (), onMulti: () -> (), onHelp: () -> (), onSettings: () -> ())
@@ -696,9 +714,7 @@ function MenuController.Init()
 		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 	}) :: ScreenGui
 
-	buildWarning(function()
-		show(menuPage)
-	end)
+	buildWarning()
 	buildMenu(
 		function()
 			Net.FireServer("RequestSolo")
@@ -741,8 +757,6 @@ function MenuController.Init()
 		TextSize = 12,
 		BackgroundTransparency = 0.35,
 		Visible = false,
-		-- Must not free the mouse during play: on a keyboard it is opened with P.
-		Modal = false,
 		Parent = gui,
 	}, toggleSettings)
 	UserInputService.InputBegan:Connect(function(input: InputObject)
@@ -773,10 +787,21 @@ end
 function MenuController.Start()
 	-- While playing, Roblox's mouse cursor is hidden: the dot in the middle of the screen
 	-- is all you aim with. It comes back whenever a menu needs clicking.
-	RunService.RenderStepped:Connect(function()
-		local needsCursor = inMenu or settingsPage.Visible or helpPage.Visible
+	-- The one place that decides about the mouse. A screen with buttons open (the menu,
+	-- settings, help, the security cameras: "UsingScreen") shows the cursor and lets the
+	-- mouse move freely; otherwise the cursor is hidden and CameraController keeps it
+	-- locked in the middle for first person. (No button uses GuiButton.Modal: a Modal
+	-- button left inside a hidden page can keep the mouse free for good.)
+	RunService:BindToRenderStep("NSSCursor", Enum.RenderPriority.Camera.Value + 2, function()
+		local needsCursor = inMenu
+			or settingsPage.Visible
+			or helpPage.Visible
+			or Players.LocalPlayer:GetAttribute("UsingScreen") == true
 		if UserInputService.MouseIconEnabled ~= needsCursor then
 			UserInputService.MouseIconEnabled = needsCursor
+		end
+		if needsCursor and UserInputService.MouseBehavior ~= Enum.MouseBehavior.Default then
+			UserInputService.MouseBehavior = Enum.MouseBehavior.Default
 		end
 	end)
 	if arrivedSolo() then
@@ -793,6 +818,9 @@ function MenuController.Start()
 	HudController.GetScreen().Enabled = false
 	fade.BackgroundTransparency = 0
 	show(warningPage)
+	playWarning(function()
+		show(menuPage)
+	end)
 	startCamera()
 	menuMusic = AudioController.Loop("MenuMusic")
 	musicTo(1, 4)

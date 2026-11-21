@@ -123,6 +123,26 @@ local Definitions: { [string]: Definition } = {
 		args = {},
 	},
 
+	-- Security cameras: the server tells the player's client to show the feeds (after
+	-- they used a monitor) or to stop showing them (caught, shift over); the client says
+	-- when the player looks away from the monitor.
+	OpenCameras = {
+		kind = "Event",
+		from = "Server",
+		args = {},
+	},
+	CloseCameras = {
+		kind = "Event",
+		from = "Server",
+		args = {},
+	},
+	LeaveCameras = {
+		kind = "Event",
+		from = "Client",
+		args = {},
+		rate = { burst = 3, perSecond = 2 },
+	},
+
 	-- The shift is over. Carries the results table shown on the results screen.
 	ShiftEnded = {
 		kind = "Event",

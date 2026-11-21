@@ -24,8 +24,13 @@ type Pickup = {
 type Held = {
 	Item: BasePart,
 	Kind: string,
-	Weld: WeldConstraint,
+	-- What holds it to the player (removed on letting go).
+	Joints: { Instance },
 }
+
+-- Where the right hand is (from the root) when it holds something out by a handle - the
+-- arm pose is CharacterAnimator's (measured on an R15 avatar).
+local HAND_GRIP = CFrame.new(1.23, 0.06, -1.55)
 
 local CarryService = {}
 
@@ -53,7 +58,11 @@ end
 -- Detaches the item from the player without placing it anywhere.
 local function release(player: Player, entry: Held)
 	held[player] = nil
-	entry.Weld:Destroy()
+	for _, joint in entry.Joints do
+		joint:Destroy()
+	end
+	entry.Item.AssemblyLinearVelocity = Vector3.zero
+	entry.Item.AssemblyAngularVelocity = Vector3.zero
 	entry.Item:SetAttribute("CarriedBy", nil)
 	player:SetAttribute("Carrying", "")
 end
@@ -100,16 +109,58 @@ function CarryService.Pickup(player: Player, item: BasePart): boolean
 
 	pickup.Prompt.Enabled = false
 	item.Anchored = false
-	item.Massless = true
 	item.CollisionGroup = CollisionGroups.Names.CarriedItem
-	item.CFrame = root.CFrame * carryOffset(pickup.Kind)
 
-	local weld = Instance.new("WeldConstraint")
-	weld.Part0 = root
-	weld.Part1 = item
-	weld.Parent = item
+	local joints: { Instance } = {}
+	local grip = item:GetAttribute("GripHeight")
+	if type(grip) == "number" then
+		-- Hung by its handle from the hand, free to swing: it lags behind when you set
+		-- off or turn and sways back, a soft spring settling it. Light, so it does not
+		-- pull the player about; it never collides (CarriedItem, CanCollide off).
+		item.Massless = false
+		item.CustomPhysicalProperties = PhysicalProperties.new(0.2, 0.3, 0)
+		item.CFrame = root.CFrame * HAND_GRIP * CFrame.new(0, -grip, 0)
+		local hand = Instance.new("Attachment")
+		hand.Name = "CarryHand"
+		hand.CFrame = HAND_GRIP
+		hand.Parent = root
+		local handle = Instance.new("Attachment")
+		handle.Name = "CarryHandle"
+		handle.Position = Vector3.new(0, grip, 0)
+		handle.Parent = item
+		local socket = Instance.new("BallSocketConstraint")
+		socket.Attachment0 = hand
+		socket.Attachment1 = handle
+		socket.LimitsEnabled = true
+		socket.UpperAngle = 30
+		socket.TwistLimitsEnabled = true
+		socket.TwistLowerAngle = -25
+		socket.TwistUpperAngle = 25
+		socket.Parent = item
+		local settle = Instance.new("AlignOrientation")
+		settle.Mode = Enum.OrientationAlignmentMode.TwoAttachment
+		settle.Attachment0 = handle
+		settle.Attachment1 = hand
+		-- Measured: setting off tilts it ~20 degrees, it settles about a second after you stop.
+		settle.Responsiveness = 9
+		settle.MaxTorque = 90
+		settle.Parent = item
+		joints = { socket, settle, hand, handle }
+		-- Simulated by the holder's own computer, so the swing is smooth for them.
+		pcall(function()
+			item:SetNetworkOwner(player)
+		end)
+	else
+		item.Massless = true
+		item.CFrame = root.CFrame * carryOffset(pickup.Kind)
+		local weld = Instance.new("WeldConstraint")
+		weld.Part0 = root
+		weld.Part1 = item
+		weld.Parent = item
+		joints = { weld }
+	end
 
-	held[player] = { Item = item, Kind = pickup.Kind, Weld = weld }
+	held[player] = { Item = item, Kind = pickup.Kind, Joints = joints }
 	item:SetAttribute("CarriedBy", player.UserId)
 	player:SetAttribute("Carrying", pickup.Kind)
 	CarryService.PickedUp:Fire(player, item, pickup.Kind)

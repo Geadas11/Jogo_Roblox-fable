@@ -143,12 +143,35 @@ Build 0.6.x (em curso) — 238 testes passam (navgrid só por tempo). **Ainda se
 - [x] Portas dos frigoríficos e tampas das arcas em plástico transparente (o material Glass escondia os rótulos)
 - [x] Desempenho: 15k peças no mapa; produtos custam ~1.8 ms/frame no Studio (rótulos até 16 studs, resolução menor, sem material Glass) — antes da otimização eram ~4 ms
 - [x] Reposição: vidro/plástico voltam com a sua transparência (atributo Alpha); pausa entre prateleiras ajustada
+- [x] Portas a rodar nas dobradiças (eixo calculado das duas poses; a do escritório deixou de girar à volta do meio da sala) + dobradiças visíveis
+- [x] Lanterna com F sozinho (e P / Espaço / largar): só bloqueadas quando se escreve numa caixa de texto
+- [x] Balanço da cabeça a correr mais suave
+- [x] Aviso inicial com fade in/out automático (~6,5 s), sem botão
+- [x] Debaixo da secretária a câmara começa virada para a porta da sala
+- [x] Passos: o baque pesado passou para o monstro; os do jogador a correr ficaram leves
+- [x] Saco do lixo a sério: corpo largo em baixo e irregular, gargalo franzido, nó, pontas do plástico caídas e laço amarelo como pega; pendurado da mão direita por uma rótula, balança ao andar/virar e assenta em ~1 s (medido); em 1.ª pessoa vê-se a mão a segurá-lo (o resto do braço fica escondido só no teu ecrã)
+- [x] Anel do prompt: desenhado em píxeis exatos — começa no centro em baixo, sobe pelos dois lados e encontra-se no centro em cima (verificado frame a frame); "Esconder" demora 0,7 s para se ver o anel
+- [x] Sons medidos um a um (PlaybackLoudness, ficheiro inteiro) e volumes acertados: falha de luz, trovão, arrastar ao longe, pancadas e música deixaram de abafar tudo
+- [x] Som por proximidade: chuva nas janelas e portas exteriores (forte lá fora, ténue dentro), compressor em cada frigorífico + tremer ocasional do mais próximo, zumbido de algumas lâmpadas (só acesas), campainha da entrada quando entra/sai um cliente (APM)
+- [x] Respiração: só a parte "heavy breathing" do ficheiro (1,0–3,4 s) em loop, um pouco mais baixa
+- [x] Passos a correr mais leves (sapatos quase ao nível de andar, baque muito suave)
 - Nota: com a janela do Studio em segundo plano o cliente não desenha frames (câmara/animações param) — não é um erro do jogo
 
 Parte C — o estranho
 - [ ] `EventManager`: eventos de terror por hora (portas, carrinhos, luzes, anúncios, silhuetas)
 - [ ] Clientes NPC (normais e estranhos)
-- [ ] Câmaras de segurança + anomalias
+- [x] Clientes suspeitos (CustomerManager): anomalias de costas / a flutuar / alto demais / cabeça tombada / sem cara / a olhar fixamente / sem cabeça só nas câmaras; 15% à 0h, 35% à 1h, depois das 2h (loja fechada) só entram suspeitos até às 5h — verificado no Studio (alturas, pescoço 72°, 0 decals, anda de costas a −1.0)
+- [x] Expulsar: "Ask to leave" (segurar 1,2 s) em qualquer cliente; suspeito olha para ti e sai a correr; normal sai ofendido e conta como erro; suspeito ignorado 150 s desaparece e o monstro ouve; contagem no ecrã de resultados — verificado no Studio
+- [x] Câmaras de segurança (CameraService + CctvController): computador do escritório e monitor da sala dos funcionários; 8 câmaras com A/D, sair com E/Espaço; imagem verde, linhas, REC, hora, chuvisco; NO SIGNAL sem o circuito Staff; não te mexes enquanto vês; sai ao ser apanhado / fim do turno — verificado no Studio e em testes
+- [x] Anel do E também nos prompts de clique (volta completa em 0,25 s); balanço da câmara ~5× menor a correr; respiração só nos últimos 18% de stamina e enquanto esgotado, para quando a stamina volta
+- [x] Rato em primeira pessoa: nenhum botão usa GuiButton.Modal (os botões do menu escondidos com Modal deixavam o rato livre para sempre); um só sítio decide: ecrã aberto → cursor e rato livre, senão → escondido e preso ao centro
+- [x] Anel do E: só nos prompts de segurar (portas são clique); o lado esquerdo era cortado pela BillboardGui (ficava 4 px fora) — tecla afastada 6 px, anel todo dentro (medido)
+- [x] Clientes com cabelo, camisa e calças do catálogo (itens grátis feitos pela Roblox)
+- Nota: no Studio, depois do Play, clicar uma vez com o botão esquerdo dentro da janela do jogo para o rato ficar preso (limitação do Studio)
+- [x] Câmaras de segurança + anomalias
+- [x] Revisão final (21/11/2026): as 6 tarefas jogadas de ponta a ponta no Studio (derrames, lixo, frigoríficos, reposição, caixas, energia), monstro (persegue, apanha, segunda oportunidade, fim de turno), esconderijos (cacifo, secretária), lanterna, portas, câmaras, clientes suspeitos e expulsão, sons e consola
+- [x] Correções da revisão: luz por cima dos contentores do lixo (o pátio de trás estava totalmente às escuras); compressores dos frigoríficos calam-se quando o circuito Cold vai abaixo; prompt "Hide" diz Locker / Toilet stall / Under the desk
+- Nota: o aviso "rbxassetid://203785492 failed" na consola vem de um plugin do Studio (áudio de outro criador), não do jogo
 
 ## Fase 6 — Apresentação
 - [ ] Intro cinemática · menu principal

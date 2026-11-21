@@ -24,6 +24,7 @@ local CONTROLLER_ORDER = {
 	"ObjectivesController",
 	"SurvivalController",
 	"MonsterController",
+	"CctvController",
 	"LightingController",
 	"AudioController",
 	"EventController",
