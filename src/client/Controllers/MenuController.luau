@@ -745,8 +745,9 @@ function MenuController.Init()
 		Modal = false,
 		Parent = gui,
 	}, toggleSettings)
-	UserInputService.InputBegan:Connect(function(input: InputObject, processed: boolean)
-		if not processed and input.KeyCode == Enum.KeyCode.P and gearButton.Visible then
+	UserInputService.InputBegan:Connect(function(input: InputObject)
+		local typing = UserInputService:GetFocusedTextBox() ~= nil
+		if not typing and input.KeyCode == Enum.KeyCode.P and gearButton.Visible then
 			toggleSettings()
 		end
 	end)

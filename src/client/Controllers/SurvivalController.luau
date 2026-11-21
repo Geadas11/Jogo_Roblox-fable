@@ -377,8 +377,10 @@ function SurvivalController.Start()
 		task.spawn(disableJump, player.Character)
 	end
 
-	UserInputService.InputBegan:Connect(function(input: InputObject, processed: boolean)
-		if processed then
+	-- Only typing (chat, a text box) blocks these keys: Roblox and Studio may flag plain
+	-- key presses as processed without anything being typed.
+	UserInputService.InputBegan:Connect(function(input: InputObject)
+		if UserInputService:GetFocusedTextBox() ~= nil then
 			return
 		end
 		local current = status()

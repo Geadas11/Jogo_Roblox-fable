@@ -268,9 +268,10 @@ function ObjectivesController.Start()
 	player:GetAttributeChangedSignal("Status"):Connect(refreshHands)
 	refreshHands()
 
-	UserInputService.InputBegan:Connect(function(input: InputObject, processed: boolean)
+	UserInputService.InputBegan:Connect(function(input: InputObject)
 		local kind = player:GetAttribute("Carrying")
-		if not processed and input.KeyCode == DROP_KEY and type(kind) == "string" and kind ~= "" then
+		local typing = UserInputService:GetFocusedTextBox() ~= nil
+		if not typing and input.KeyCode == DROP_KEY and type(kind) == "string" and kind ~= "" then
 			Net.FireServer("DropItem")
 		end
 	end)

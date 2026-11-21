@@ -392,8 +392,11 @@ function LightingController.Start()
 		end)
 	end
 
-	UserInputService.InputBegan:Connect(function(input: InputObject, processed: boolean)
-		if not processed and input.KeyCode == Enum.KeyCode.F then
+	-- F, with or without other keys held. Roblox can flag a plain key press as "processed"
+	-- by its own UI even when nothing is typed; the only thing that must block it is
+	-- typing (chat, a text box).
+	UserInputService.InputBegan:Connect(function(input: InputObject)
+		if input.KeyCode == Enum.KeyCode.F and UserInputService:GetFocusedTextBox() == nil then
 			toggleFlashlight()
 		end
 	end)
