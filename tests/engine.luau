@@ -797,6 +797,9 @@ function Engine.new(options)
 			IsStudio = function()
 				return true
 			end,
+			-- Render steps never run in tests (nothing is drawn); just accept them.
+			BindToRenderStep = function() end,
+			UnbindFromRenderStep = function() end,
 		})
 
 		-- Players as seen from this side: LocalPlayer only exists on a client.

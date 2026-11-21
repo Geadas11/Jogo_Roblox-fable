@@ -131,6 +131,18 @@ Build 0.6.x (em curso) — 238 testes passam (navgrid só por tempo). **Ainda se
 - [x] Monstro = antigo funcionário: camisa amarela de manga curta, avental azul (peito + saia) com manchas de sangue a escorrer, crachá "HELLO, MY NAME IS WALTER" riscado, mãos ensanguentadas, olhos com olheiras vermelhas, boca aberta com dentes amarelados tortos e sangue a escorrer pelo queixo — visto em jogo no Studio
 - [x] Máquina de venda: a luz sai só pelo vidro (5 tiras escondidas atrás das etiquetas, viradas para dentro, alcance curto), sem PointLights a iluminar paredes/chão — visto em jogo no Studio
 - [x] Correções: ecrã de resultados já não fica tapado pela captura; candeeiros das caixas apagam no apagão; repor a luz no fim do turno já não conta como tarefa
+- [x] Câmara: o bloqueio do rato em 1.ª pessoa é reposto a cada frame sempre que não há menu aberto (já não é preciso o botão direito) — testado: libertado à força, volta a LockCenter
+- [x] Andar: balanço da cabeça bem mais visível (sobe/desce com a passada, afunda a cada pé, inclina de lado), mais forte a correr
+- [x] Passos: a correr, um baque por cada pé a bater no chão, em sincronia com as pernas (≈3.7/s), mais som de sapatos mais alto e mais rápido; a andar fica o som suave
+- [x] Sons mais baixos (grupos Ambient 0.7, Music 0.6, Effects 0.75); zumbido das lâmpadas ("ventilador") muito mais baixo; compressores só se ouvem perto
+- [x] Ambiente variado: rangidos, o prédio a assentar, janelas/vidros a vibrar, trovões lá fora, pingos num balde, metal, arrastar ao longe — aleatórios a cada 10–28 s, à volta do jogador (Pro Sound Effects)
+- [x] Esconder debaixo da secretária: sem nada a tapar o ecrã; o corpo fica sentado no chão encolhido (pose medida: cabe entre o chão e o tampo), virado para fora, olhos a 2.17 — testado em números; a captura 3D do Studio estava congelada nesta sessão
+- [x] Chat começa fechado (continua acessível no botão do chat)
+- [x] Teste completo no Studio: aviso sem chat, acordar, câmara presa, balanço (andar 0.16 / correr 0.43, inclinação 0.7°/1.7°), 4.3 passos/s a correr, sons novos todos carregam e tocam, vista debaixo da secretária (vista em imagem), turno, perseguição → apanhado → 2.ª oportunidade → apanhado → fim do turno, sem erros na consola
+- [x] Produtos novos (map/Products.luau), modelos próprios: caixas de cereais (marca grande, tigela, "NEW!"), garrafas de vidro (líquido, ombro, gargalo, tampa), garrafas de plástico (água, cola, sumo), frascos com conteúdo e tampa, pacotes de leite com telhado, jarros com pega, sprays, champô, sacos de batatas com selagens, sacos dobrados, comida de animais, latas (empilhadas), iogurtes, rolos de papel higiénico em película, caixas pequenas/planas empilhadas; stock atrás da 1.ª fila nas caixas; paletes com caixas de cartão impressas; frigoríficos com leite/iogurtes
+- [x] Portas dos frigoríficos e tampas das arcas em plástico transparente (o material Glass escondia os rótulos)
+- [x] Desempenho: 15k peças no mapa; produtos custam ~1.8 ms/frame no Studio (rótulos até 16 studs, resolução menor, sem material Glass) — antes da otimização eram ~4 ms
+- [x] Reposição: vidro/plástico voltam com a sua transparência (atributo Alpha); pausa entre prateleiras ajustada
 - Nota: com a janela do Studio em segundo plano o cliente não desenha frames (câmara/animações param) — não é um erro do jogo
 
 Parte C — o estranho

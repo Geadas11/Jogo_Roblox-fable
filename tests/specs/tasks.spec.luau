@@ -55,7 +55,9 @@ end
 
 local function productsVisible(bay)
 	for _, child in bay:GetChildren() do
-		if child:IsA("BasePart") and child.Name ~= "Anchor" and child.Transparency ~= 0 then
+		-- Shown = back to its own transparency (glass and clear plastic keep theirs).
+		local shown = child:GetAttribute("Alpha") or 0
+		if child:IsA("BasePart") and child.Name ~= "Anchor" and child.Transparency ~= shown then
 			return false
 		end
 	end

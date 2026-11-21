@@ -339,7 +339,10 @@ return function(k, root)
 	k:span(office, "DeskSideA", -97.5, 0, 19, -91.5, 2.8, 19.3, P.woodDark)
 	k:span(office, "DeskSideB", -97.5, 0, 30.7, -91.5, 2.8, 31, P.woodDark)
 	k:span(office, "DeskDrawers", -97.5, 0, 28, -92, 2.8, 30.7, Kit.decor(P.woodDark))
-	k:marker(office, "UnderDesk", -94.5, 1.4, 23, "HidingSpot", { Kind = "UnderDesk", Zone = "Office" })
+	-- Under the desk, facing out of its open side (east, towards the chair).
+	local underDesk =
+		k:marker(office, "UnderDesk", -94.5, 1.4, 23, "HidingSpot", { Kind = "UnderDesk", Zone = "Office" })
+	underDesk.CFrame = Kit.CFrame.lookAt(Kit.Vector3.new(-94.5, 1.4, 23), Kit.Vector3.new(-93.5, 1.4, 23))
 	chair(office, -89.6, 25, "E")
 
 	local monitor = k:span(office, "ComputerMonitor", -96.5, 3.6, 23.4, -96.3, 5.4, 26.6, P.dBlack)

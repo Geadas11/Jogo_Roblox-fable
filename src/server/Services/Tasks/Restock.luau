@@ -15,7 +15,9 @@ local InteractionService = require(Services.InteractionService)
 local Restock = {}
 
 local function setPartShown(part: BasePart, shown: boolean)
-	part.Transparency = if shown then 0 else 1
+	-- Glass and clear plastic keep their own transparency (stored by the map as "Alpha").
+	local alpha = part:GetAttribute("Alpha")
+	part.Transparency = if shown then (if type(alpha) == "number" then alpha else 0) else 1
 	-- The printed labels must go with the packaging, or they would float in mid-air.
 	for _, child in part:GetChildren() do
 		if child:IsA("SurfaceGui") then
@@ -49,8 +51,9 @@ local function setStocked(bay: Instance, stocked: boolean, animated: boolean?)
 			if bay:GetAttribute("Stocked") ~= true then
 				return
 			end
-			-- A short pause between shelves.
-			if part.Position.Y - lastY > 1 then
+			-- A short pause between shelves (1.5 studs apart; one shelf's goods, caps and
+			-- necks included, stand less than 1.35 tall).
+			if part.Position.Y - lastY > 1.35 then
 				lastY = part.Position.Y
 				task.wait(0.18)
 			end

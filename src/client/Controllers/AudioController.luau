@@ -56,7 +56,13 @@ local function newSound(name: string, looped: boolean): Sound
 end
 
 -- Plays a sound once at a point in the world (heard from where it happens).
-function AudioController.PlayAt(name: string, position: Vector3, volume: number?, range: number?)
+function AudioController.PlayAt(
+	name: string,
+	position: Vector3,
+	volume: number?,
+	range: number?,
+	pitch: number?
+)
 	local holder = Instance.new("Part")
 	holder.Name = "SoundAt_" .. name
 	holder.Anchored = true
@@ -68,6 +74,7 @@ function AudioController.PlayAt(name: string, position: Vector3, volume: number?
 	holder.CFrame = CFrame.new(position)
 	local sound = newSound(name, false)
 	sound.Volume *= volume or 1
+	sound.PlaybackSpeed *= pitch or 1
 	sound.RollOffMode = Enum.RollOffMode.InverseTapered
 	sound.RollOffMinDistance = 6
 	sound.RollOffMaxDistance = range or 90
@@ -222,6 +229,66 @@ local function ambienceFrame(dt: number)
 	drive("Rain", 1, dt, 3)
 end
 
+-- The building at night: every so often a creak, a rattle, a drip, a far-off clank or
+-- thunder outside, somewhere around the player, never twice the same in a row. Keeps the
+-- quiet from becoming one flat drone.
+local function pickAmbient(last: string?): any
+	local pool = AudioConfig.AmbientPool
+	local total = 0
+	for _, entry in pool do
+		if entry.Sound ~= last then
+			total += entry.Weight
+		end
+	end
+	local roll = math.random() * total
+	for _, entry in pool do
+		if entry.Sound ~= last then
+			roll -= entry.Weight
+			if roll <= 0 then
+				return entry
+			end
+		end
+	end
+	return pool[1]
+end
+
+local function ambientSpot(): Vector3?
+	local character = Players.LocalPlayer.Character
+	local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
+	if not root or not root:IsA("BasePart") then
+		return nil
+	end
+	local angle = math.random() * math.pi * 2
+	local distance = AudioConfig.AmbientNear
+		+ math.random() * (AudioConfig.AmbientFar - AudioConfig.AmbientNear)
+	return root.Position
+		+ Vector3.new(math.cos(angle) * distance, math.random(0, 6), math.sin(angle) * distance)
+end
+
+local function runAmbience()
+	local last: string? = nil
+	while true do
+		local gap = AudioConfig.AmbientGap
+		task.wait(gap[1] + math.random() * (gap[2] - gap[1]))
+		local entry = pickAmbient(last)
+		last = entry.Sound
+		local pitch = 0.88 + math.random() * 0.24
+		if entry.Outside then
+			AudioController.Play(entry.Sound, 0.7 + math.random() * 0.5)
+		else
+			local spot = ambientSpot()
+			if spot then
+				for _ = 1, entry.Repeat or 1 do
+					AudioController.PlayAt(entry.Sound, spot, 0.75 + math.random() * 0.4, 70, pitch)
+					if entry.Repeat then
+						task.wait(1.1 + math.random() * 0.9)
+					end
+				end
+			end
+		end
+	end
+end
+
 -- Compressors humming at a few coolers, so the cold aisle sounds alive.
 local function placeColdHum()
 	local placed = 0
@@ -240,8 +307,8 @@ local function placeColdHum()
 		if part and placed < 6 then
 			local sound = newSound("ColdHum", true)
 			sound.RollOffMode = Enum.RollOffMode.InverseTapered
-			sound.RollOffMinDistance = 4
-			sound.RollOffMaxDistance = 28
+			sound.RollOffMinDistance = 3
+			sound.RollOffMaxDistance = 20
 			sound.Parent = part
 			sound:Play()
 			placed += 1
@@ -307,6 +374,7 @@ function AudioController.Start()
 		attachMonster(instance)
 	end
 	placeColdHum()
+	task.spawn(runAmbience)
 
 	-- The lights going out is heard as well as seen (once, even when every circuit
 	-- drops at the same moment).

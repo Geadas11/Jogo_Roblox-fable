@@ -46,11 +46,19 @@ local function setStatusIf(player: Player, from: string, to: string)
 	end
 end
 
--- Where the root part goes while hidden: inside the spot, standing or crouched.
+-- Where the root part goes while hidden: inside the spot, standing, or under a desk low
+-- down, curled up on the floor (the pose is drawn by every client's CharacterAnimator),
+-- facing the way the spot faces (its marker's look direction: the open side).
+local UNDER_DESK_HEIGHT = 1.33
+
 local function insideCFrame(spot: Spot): CFrame
 	local position = spot.Part.Position
-	local height = if spot.Kind == "UnderDesk" then 1.6 else 3
-	return CFrame.new(position.X, height, position.Z)
+	if spot.Kind == "UnderDesk" then
+		local look = spot.Part.CFrame.LookVector
+		local at = Vector3.new(position.X, UNDER_DESK_HEIGHT, position.Z)
+		return CFrame.lookAt(at, at + Vector3.new(look.X, 0, look.Z))
+	end
+	return CFrame.new(position.X, 3, position.Z)
 end
 
 -- Somewhere walkable just outside the spot.

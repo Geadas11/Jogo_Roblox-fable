@@ -201,21 +201,21 @@ Layout.FreezerIslandX = { 55, 73 }
 
 -- What each shelf face sells. Index 1 is the west wall, then west/east face of each gondola.
 Layout.Categories = {
-	{ name = "HOUSEHOLD", kinds = { "box", "jug", "bottle" } },
-	{ name = "CLEANING", kinds = { "jug", "bottle", "box" } },
-	{ name = "PAPER GOODS", kinds = { "bag", "box", "flat" } },
-	{ name = "PET FOOD", kinds = { "bag", "can", "box" } },
-	{ name = "PERSONAL CARE", kinds = { "bottle", "box", "jar" } },
-	{ name = "BABY", kinds = { "box", "jar", "bag" } },
-	{ name = "CEREAL", kinds = { "tall", "tall", "box" } },
-	{ name = "BREAKFAST", kinds = { "jar", "tall", "box" } },
-	{ name = "PASTA & RICE", kinds = { "bag", "box", "tall" } },
-	{ name = "SAUCES", kinds = { "jar", "bottle", "can" } },
+	{ name = "HOUSEHOLD", kinds = { "box", "smallbox", "jug", "spray" } },
+	{ name = "CLEANING", kinds = { "spray", "jug", "spray", "plasticbottle" } },
+	{ name = "PAPER GOODS", kinds = { "rolls", "rolls", "sack" } },
+	{ name = "PET FOOD", kinds = { "petfood", "can", "box" } },
+	{ name = "PERSONAL CARE", kinds = { "shampoo", "smallbox", "shampoo", "jar" } },
+	{ name = "BABY", kinds = { "box", "jar", "smallbox", "sack" } },
+	{ name = "CEREAL", kinds = { "cereal", "cereal", "cereal", "box" } },
+	{ name = "BREAKFAST", kinds = { "jar", "cereal", "box", "carton" } },
+	{ name = "PASTA & RICE", kinds = { "sack", "box", "sack" } },
+	{ name = "SAUCES", kinds = { "jar", "glassbottle", "plasticbottle", "glassbottle" } },
 	{ name = "CANNED GOODS", kinds = { "can", "can", "jar" } },
 	{ name = "SOUPS", kinds = { "can", "box", "can" } },
 	{ name = "SNACKS", kinds = { "bag", "bag", "box" } },
-	{ name = "CANDY", kinds = { "box", "bag", "flat" } },
-	{ name = "DRINKS", kinds = { "bottle", "jug", "can" } },
+	{ name = "CANDY", kinds = { "smallbox", "bag", "box" } },
+	{ name = "DRINKS", kinds = { "plasticbottle", "glassbottle", "can", "plasticbottle" } },
 }
 
 return Layout

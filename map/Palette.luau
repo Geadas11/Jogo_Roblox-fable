@@ -47,6 +47,10 @@ P.frost = S(210, 228, 236, "Ice")
 -- Glass: blocks movement, lets light and sight through.
 P.glass = S(168, 204, 214, "Glass", { alpha = 0.7, shadow = false })
 P.glassDecor = S(168, 204, 214, "Glass", { alpha = 0.7, collide = false })
+-- Fridge doors and freezer lids: the Glass material's refraction hides the printed
+-- labels (SurfaceGuis) behind it, so these are clear plastic with a little shine.
+P.fridgeGlass =
+	S(200, 222, 230, "SmoothPlastic", { alpha = 0.84, reflect = 0.12, collide = false, shadow = false })
 P.mirror = S(196, 206, 210, "Glass", { reflect = 0.35, collide = false })
 
 -- Exterior

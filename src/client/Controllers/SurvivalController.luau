@@ -6,6 +6,7 @@
 --   Hiding   SPACE or the LEAVE button steps out
 --   Caught   watch a teammate; LEFT / RIGHT (or the buttons) switch between them
 
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -140,15 +141,9 @@ local function build(screen: ScreenGui)
 		block(locker, UDim2.new(0, 0, index / 10, 0), UDim2.new(1, 0, 0.07, 0), metal)
 	end
 
-	-- Under the desk: the underside of the desk top fills the upper view, the modesty
-	-- panel and legs close in at the sides; only a low strip of floor is visible.
-	local desk = view("UnderDesk")
-	local wood = Color3.fromRGB(30, 22, 16)
-	block(desk, UDim2.new(0, 0, 0, 0), UDim2.new(1, 0, 0.42, 0), wood)
-	block(desk, UDim2.new(0, 0, 0.42, 0), UDim2.new(1, 0, 0.03, 0), Color3.fromRGB(18, 13, 9))
-	block(desk, UDim2.new(0, 0, 0, 0), UDim2.new(0.16, 0, 1, 0), wood)
-	block(desk, UDim2.new(0.84, 0, 0, 0), UDim2.new(0.16, 0, 1, 0), wood)
-	block(desk, UDim2.new(0.16, 0, 0.45, 0), UDim2.new(0.68, 0, 0.55, 0), Color3.new(0, 0, 0), 0.45)
+	-- Under the desk: nothing drawn over the view. You are really down there, curled up
+	-- on the floor (CharacterAnimator), looking out from under the desk top.
+	view("UnderDesk")
 
 	-- Restroom stall: the door is shut; you watch through the gap at its edge.
 	local stall = view("Stall")
@@ -311,10 +306,41 @@ end
 
 -- Status ------------------------------------------------------------------------------------
 
+-- Under a desk the body must face out of the open side, the way the server placed it:
+-- the first-person camera may already have turned it on this client.
+local function faceOutOfSpot()
+	local character = Players.LocalPlayer.Character
+	local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
+	if not root or not root:IsA("BasePart") then
+		return
+	end
+	local nearest: BasePart? = nil
+	local best = 6
+	for _, spot in CollectionService:GetTagged("HidingSpot") do
+		if spot:IsA("BasePart") and spot:GetAttribute("Kind") == "UnderDesk" then
+			local distance =
+				Vector3.new(spot.Position.X - root.Position.X, 0, spot.Position.Z - root.Position.Z).Magnitude
+			if distance < best then
+				best = distance
+				nearest = spot
+			end
+		end
+	end
+	if nearest then
+		local look = nearest.CFrame.LookVector
+		root.CFrame = CFrame.lookAt(root.Position, root.Position + Vector3.new(look.X, 0, look.Z))
+	end
+end
+
 function SurvivalController.Refresh()
 	local current = status()
 	hidingPanel.Visible = current == "Hiding"
 	local kind = tostring(Players.LocalPlayer:GetAttribute("HidingKind") or "Locker")
+	if current == "Hiding" and kind == "UnderDesk" then
+		-- Again a moment later, once the body has stopped turning with the camera.
+		task.defer(faceOutOfSpot)
+		task.delay(0.25, faceOutOfSpot)
+	end
 	for _, child in hidingPanel:GetChildren() do
 		if child:IsA("Frame") then
 			child.Visible = child.Name == kind

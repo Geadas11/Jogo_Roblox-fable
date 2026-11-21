@@ -4,6 +4,7 @@
 local Kit = require("./Kit")
 local Layout = require("./Layout")
 local P = require("./Palette")
+local Products = require("./Products")
 local Props = require("./Props")
 
 local Color3 = Kit.Color3
@@ -16,179 +17,9 @@ local GONDOLA_HEIGHT = 6.6
 local ANCHOR = Kit.style(255, 255, 255, "SmoothPlastic", { alpha = 1, collide = false })
 local BAY_LENGTH = 6
 
--- Product silhouettes: w = size along the shelf, h = height, d = depth.
-local KINDS = {
-	box = { name = "box", shape = "box", w = { 0.9, 1.3 }, h = { 0.9, 1.25 }, d = 0.75 },
-	tall = { name = "tall", shape = "box", w = { 0.7, 0.95 }, h = { 1.1, 1.3 }, d = 0.6 },
-	flat = { name = "flat", shape = "box", w = { 1.2, 1.6 }, h = { 0.45, 0.75 }, d = 1.0 },
-	bag = { name = "bag", shape = "box", w = { 1.0, 1.3 }, h = { 0.9, 1.25 }, d = 0.5 },
-	jug = { name = "jug", shape = "box", w = { 0.85, 1.1 }, h = { 1.05, 1.3 }, d = 0.85 },
-	can = { name = "can", shape = "cyl", w = { 0.6, 0.75 }, h = { 0.7, 0.95 } },
-	jar = { name = "jar", shape = "cyl", w = { 0.65, 0.8 }, h = { 0.85, 1.15 } },
-	-- Body only: shoulder, neck and cap add 0.35 on top.
-	bottle = { name = "bottle", shape = "cyl", w = { 0.5, 0.65 }, h = { 0.8, 0.95 } },
-}
-
--- Product detail ---------------------------------------------------------------------------
--- Every product is a coloured block or cylinder; these add what makes it read as a real
--- item from a few studs away: a printed label, a cap, a lid, a metal rim. They are all
--- decorative (no collision, no shadow) and named "ProductDetail" so the restock task
--- hides and shows them together with the product.
-
-local METAL_RIM = Kit.style(196, 198, 202, "Metal", { collide = false, shadow = false })
-local GOLD_LID = Kit.style(186, 152, 70, "Metal", { collide = false, shadow = false })
-
--- A label colour that stands out from the packaging: light paper, or a darker or
--- complementary print.
--- Hue, saturation and value of a colour (written out: the build runs outside Roblox).
-local function toHSV(color)
-	local r, g, b = color.R, color.G, color.B
-	local max, min = math.max(r, g, b), math.min(r, g, b)
-	local delta = max - min
-	local h = 0
-	if delta > 0 then
-		if max == r then
-			h = ((g - b) / delta) % 6
-		elseif max == g then
-			h = (b - r) / delta + 2
-		else
-			h = (r - g) / delta + 4
-		end
-		h /= 6
-	end
-	local s = if max > 0 then delta / max else 0
-	return h, s, max
-end
-
-local function labelStyle(k, packaging)
-	local h, s, v = toHSV(packaging.color)
-	local color
-	local roll = k:rand()
-	if roll < 0.45 then
-		color = Color3.fromHSV(h, s * 0.12, 0.95)
-	elseif roll < 0.75 then
-		color = Color3.fromHSV((h + 0.5) % 1, math.min(1, s + 0.2), math.min(1, v + 0.1))
-	else
-		color = Color3.fromHSV(h, math.min(1, s + 0.25), v * 0.45)
-	end
-	return { color = color, material = Kit.Enum.Material.SmoothPlastic, collide = false, shadow = false }
-end
-
--- Fake brands --------------------------------------------------------------------------------
--- Every run of identical products gets a made-up brand: a name and a small picture
--- (an emoji, so no image assets are needed). Printed on the label with a SurfaceGui that
--- is only drawn within PRINT_DISTANCE studs, so thousands of labels cost nothing from
+-- Prints are only drawn within this distance, so thousands of labels cost nothing from
 -- across the store.
-
-local PRINT_DISTANCE = 24
-
-local BRANDS = {
-	box = {
-		{ "Crunchos", "🥣" },
-		{ "Golden Oat", "🌾" },
-		{ "Choco Puff", "🍩" },
-		{ "Nonna's Pasta", "🍝" },
-		{ "Biscuit Barn", "🍪" },
-		{ "Rice Rocket", "🍚" },
-	},
-	tall = { { "MooFresh", "🥛" }, { "Oaty", "🌾" }, { "Sunny Juice", "🍊" }, { "Berry Good", "🍓" } },
-	flat = {
-		{ "Freezy Pizza", "🍕" },
-		{ "Waffle Hut", "🧇" },
-		{ "Fish Fingers", "🐟" },
-		{ "Tea Time", "🍵" },
-	},
-	bag = {
-		{ "Snakk", "🍿" },
-		{ "Crispers", "🥔" },
-		{ "Sugar Rush", "🍬" },
-		{ "Nutty", "🥜" },
-		{ "Loaf & Co", "🍞" },
-	},
-	jug = { { "MooFresh", "🥛" }, { "Sparkle", "🧽" }, { "Orchard", "🍎" } },
-	can = {
-		{ "Nite Cola", "🥤" },
-		{ "Fizzo", "🍹" },
-		{ "Tomato Joe", "🍅" },
-		{ "Bean Co.", "🥫" },
-		{ "Sweetcorn", "🌽" },
-		{ "Kitty Feast", "🐟" },
-	},
-	jar = {
-		{ "Sunny Jam", "🍓" },
-		{ "Honey Hill", "🍯" },
-		{ "Pickle Pete", "🥒" },
-		{ "Choc Spread", "🌰" },
-	},
-	bottle = { { "Pure Spring", "💧" }, { "Zest!", "🍋" }, { "Fizzo", "🍹" }, { "Golden Oil", "🌻" } },
-}
-local BRAND_FONTS = { "FredokaOne", "GothamBlack", "LuckiestGuy", "Bangers", "Oswald", "SourceSansBold" }
-
-local function pickBrand(k, kindName)
-	local brand = k:pick(BRANDS[kindName] or BRANDS.box)
-	return { Name = brand[1], Picture = brand[2], Font = k:pick(BRAND_FONTS) }
-end
-
--- Prints straight onto one face of the packaging itself (a SurfaceGui lies flat on the
--- part's surface, so the print moves and hides with it). `face` is a NormalId name in
--- the part's own space. Everything is drawn inside `region` (x, y, w, h as fractions of
--- the face); with `paper` set, the region is first filled with that colour - the
--- printed label - and an optional `band` colour strip runs along the top of the face.
-local function printBrand(part, face, brand, labelColor, region, paper, band)
-	local Instance, Enum, UDim2 = Kit.Instance, Kit.Enum, Kit.UDim2
-	local gui = Instance.new("SurfaceGui")
-	gui.Name = "Print"
-	gui.Face = Enum.NormalId[face]
-	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	gui.PixelsPerStud = 70
-	gui.LightInfluence = 1
-	gui.MaxDistance = PRINT_DISTANCE
-	gui.ClipsDescendants = true
-	gui.Parent = part
-
-	if band then
-		local strip = Instance.new("Frame")
-		strip.Name = "Band"
-		strip.BorderSizePixel = 0
-		strip.BackgroundColor3 = band
-		strip.Position = UDim2.new(0.02, 0, 0.05, 0)
-		strip.Size = UDim2.new(0.96, 0, 0.13, 0)
-		strip.Parent = gui
-	end
-
-	local area = Instance.new("Frame")
-	area.Name = "Label"
-	area.BorderSizePixel = 0
-	area.Position = UDim2.new(region[1], 0, region[2], 0)
-	area.Size = UDim2.new(region[3], 0, region[4], 0)
-	area.BackgroundColor3 = paper or labelColor
-	area.BackgroundTransparency = if paper then 0 else 1
-	area.Parent = gui
-
-	-- Dark print on light labels, light print on dark ones.
-	local _, _, value = toHSV(labelColor)
-	local ink = if value > 0.6 then Color3.fromRGB(28, 26, 30) else Color3.fromRGB(245, 242, 232)
-
-	local picture = Instance.new("TextLabel")
-	picture.Name = "Picture"
-	picture.BackgroundTransparency = 1
-	picture.Position = UDim2.new(0, 0, 0.04, 0)
-	picture.Size = UDim2.new(1, 0, 0.5, 0)
-	picture.Text = brand.Picture
-	picture.TextScaled = true
-	picture.Parent = area
-
-	local name = Instance.new("TextLabel")
-	name.Name = "Brand"
-	name.BackgroundTransparency = 1
-	name.Position = UDim2.new(0.05, 0, 0.55, 0)
-	name.Size = UDim2.new(0.9, 0, 0.4, 0)
-	name.Text = brand.Name
-	name.TextScaled = true
-	name.TextColor3 = ink
-	name.FontFace = Kit.Font.fromEnum(Enum.Font[brand.Font])
-	name.Parent = area
-end
+local PRINT_DISTANCE = 16
 
 -- Plain printed text filling one face of a part (price tags, shelf talkers, signs).
 local function printText(part, face, text, color, pps)
@@ -212,115 +43,6 @@ local function printText(part, face, text, color, pps)
 	return gui
 end
 
--- Prints the brand on the curved side of an upright label band, facing `towards` (a
--- horizontal unit vector: where the customer stands).
---
--- A SurfaceGui is flat, so on a cylinder it can only lie against the curve along a
--- narrow strip down the middle; the print is kept to that strip so it reads as printed
--- on the tin instead of floating in front of it. The band is turned about its own axis
--- (it is round, so nothing visibly changes) so that its Front face looks at the customer;
--- on that face the GUI canvas is rotated 90 degrees, which the content undoes (-90) to
--- stand upright. Checked in Studio.
-local CYLINDER_PPS = 140
-
-local function printCylinder(band, towards, brand, labelColor)
-	local Instance, Enum, UDim2, Vector3, CFrame = Kit.Instance, Kit.Enum, Kit.UDim2, Kit.Vector3, Kit.CFrame
-	local up = Vector3.new(0, 1, 0)
-	local front = -towards
-	band.CFrame = CFrame.fromMatrix(band.CFrame.Position, up, front:Cross(up))
-
-	local gui = Instance.new("SurfaceGui")
-	gui.Name = "Print"
-	gui.Face = Enum.NormalId.Front
-	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	gui.PixelsPerStud = CYLINDER_PPS
-	gui.LightInfluence = 1
-	gui.MaxDistance = PRINT_DISTANCE
-	gui.Parent = band
-
-	-- Canvas: band length (vertical in the world) by diameter (horizontal).
-	local length = band.Size.X * CYLINDER_PPS
-	local diameter = band.Size.Y * CYLINDER_PPS
-	local area = Instance.new("Frame")
-	area.Name = "Label"
-	area.BackgroundTransparency = 1
-	area.AnchorPoint = Kit.Vector2.new(0.5, 0.5)
-	area.Position = UDim2.new(0.5, 0, 0.5, 0)
-	-- Width across the tin (kept to the middle 46%), height up the label.
-	area.Size = UDim2.new(0, diameter * 0.46, 0, length * 0.92)
-	area.Rotation = -90
-	area.Parent = gui
-
-	local _, _, value = toHSV(labelColor)
-	local ink = if value > 0.6 then Color3.fromRGB(28, 26, 30) else Color3.fromRGB(245, 242, 232)
-
-	local picture = Instance.new("TextLabel")
-	picture.Name = "Picture"
-	picture.BackgroundTransparency = 1
-	picture.Size = UDim2.new(1, 0, 0.48, 0)
-	picture.Text = brand.Picture
-	picture.TextScaled = true
-	picture.Parent = area
-
-	local name = Instance.new("TextLabel")
-	name.Name = "Brand"
-	name.BackgroundTransparency = 1
-	name.Position = UDim2.new(0, 0, 0.5, 0)
-	name.Size = UDim2.new(1, 0, 0.48, 0)
-	name.Text = brand.Name
-	name.TextScaled = true
-	name.TextColor3 = ink
-	name.FontFace = Kit.Font.fromEnum(Enum.Font[brand.Font])
-	name.Parent = area
-end
-
--- Upright cylinder product at (cx, y, cz): the body plus its details. `towards` is the
--- horizontal direction of the customer, for the print.
-local function cylinderProduct(k, parent, kind, cx, y, cz, width, height, style, towards)
-	if kind.name == "bottle" then
-		-- Body, shoulder, neck and cap: a bottle, not a tube.
-		local body = table.clone(style)
-		body.reflect = 0.08
-		k:cyl(parent, "Product", cx, y, cz, width, height, body)
-		k:cyl(parent, "ProductDetail", cx, y + height, cz, width * 0.6, 0.12, body)
-		k:cyl(parent, "ProductDetail", cx, y + height + 0.12, cz, width * 0.36, 0.15, body)
-		local cap = labelStyle(k, style)
-		k:cyl(parent, "ProductDetail", cx, y + height + 0.27, cz, width * 0.42, 0.08, cap)
-	elseif kind.name == "can" then
-		k:cyl(parent, "Product", cx, y, cz, width, height, METAL_RIM)
-		k:cyl(parent, "ProductDetail", cx, y + 0.06, cz, width + 0.03, height - 0.12, style)
-	else -- jar
-		local glass = table.clone(style)
-		glass.reflect = 0.12
-		k:cyl(parent, "Product", cx, y, cz, width, height, glass)
-		k:cyl(parent, "ProductDetail", cx, y + height, cz, width + 0.04, 0.14, GOLD_LID)
-	end
-
-	-- The label wrapped round the middle, with the brand printed on the side you see.
-	local labelBottom = y
-		+ height * (if kind.name == "jar" then 0.2 elseif kind.name == "can" then 0.22 else 0.25)
-	local labelHeight = height * (if kind.name == "jar" then 0.5 elseif kind.name == "can" then 0.56 else 0.5)
-	local label = labelStyle(k, style)
-	local band = k:cyl(parent, "ProductDetail", cx, labelBottom, cz, width + 0.05, labelHeight, label)
-	if towards and style.brand then
-		printCylinder(band, towards, style.brand, label.color)
-	end
-end
-
--- The printed front of a box-shaped product: the label, the brand band along the top of
--- cereal-style boxes, the name and the picture, all printed on the product's own face
--- (no extra parts). `face` is the product's side that looks at the customer.
-local function boxLabel(k, product, kind, face, style)
-	if not style.brand then
-		return
-	end
-	local label = labelStyle(k, style)
-	local band = if kind.name == "box" or kind.name == "tall" then labelStyle(k, style).color else nil
-	local h = if kind.name == "flat" then 0.6 else 0.48
-	local y = if kind.name == "bag" then 0.18 else (if band then 0.28 else 0.26)
-	printBrand(product, face, style.brand, label.color, { 0.1, y, 0.8, h }, label.color, band)
-end
-
 return function(k, root)
 	local shop = k:folder(root, "ShopFloor")
 	local shelving = k:folder(shop, "Shelving")
@@ -329,35 +51,23 @@ return function(k, root)
 	local front = k:folder(shop, "FrontArea")
 	local signs = k:folder(shop, "Signs")
 
-	local function packaging()
-		return {
-			color = Color3.fromHSV(k:rand(), k:range(0.35, 0.75), k:range(0.5, 0.92)),
-			material = Kit.Enum.Material.SmoothPlastic,
-			collide = false,
-		}
-	end
-
-	-- Fills one shelf level with runs of identical products.
-	--   place(along, y, kind, width, height, style)  puts one item at `along` on the shelf
+	-- Fills one shelf level with runs of identical products (Products.luau).
+	--   place(along, run)  puts one item of `run` centred at `along` on the shelf
 	local function stock(from, to, kinds, place)
 		local cursor = from + 0.3
 		while cursor < to - 0.9 do
-			local kind = KINDS[k:pick(kinds)]
-			local width = k:range(kind.w[1], kind.w[2])
-			local height = k:range(kind.h[1], kind.h[2])
-			local style = packaging()
-			style.brand = pickBrand(k, kind.name)
+			local run = Products.run(k, k:pick(kinds))
 			for _ = 1, k:int(2, 5) do
-				if cursor + width > to - 0.3 then
+				if cursor + run.w > to - 0.3 then
 					break
 				end
 				-- An occasional gap where a customer took the last one.
 				if not k:chance(0.07) then
-					place(cursor + width / 2, kind, width, height, style)
+					place(cursor + run.w / 2, run)
 				end
-				cursor += width + 0.12
+				cursor += run.w + 0.08
 			end
-			cursor += 0.25
+			cursor += 0.22
 		end
 	end
 
@@ -377,29 +87,20 @@ return function(k, root)
 			local bay = k:model(parent, "Bay")
 			k:mark(bay, "ShelfBay", { Category = category.name, Aisle = aisle, Stocked = true })
 			k:marker(bay, "Anchor", xFront + outward * 0.4, 3.2, (z + bayEnd) / 2)
+			-- Products face the aisle (the customer stands on the shelf's open side) and fill
+			-- the shelf back to the spine.
+			local shelfDepth = math.abs(xFront - xBack) - 0.15
 			for _, y in LEVELS do
-				stock(z, bayEnd, category.kinds, function(along, kind, width, height, style)
-					local depth = kind.d or width
-					local x = xFront - outward * (0.15 + depth / 2)
-					if kind.shape == "cyl" then
-						-- The customer stands in the aisle, on the shelf's open side.
-						cylinderProduct(
-							k,
-							bay,
-							kind,
-							x,
-							y,
-							along,
-							width,
-							height,
-							style,
-							Kit.Vector3.new(outward, 0, 0)
-						)
-					else
-						local product =
-							k:box(bay, "Product", x, y + height / 2, along, depth, height, width, style)
-						boxLabel(k, product, kind, if outward > 0 then "Right" else "Left", style)
-					end
+				stock(z, bayEnd, category.kinds, function(along, run)
+					local x = xFront - outward * (0.15 + run.d / 2)
+					Products.place(
+						k,
+						bay,
+						run,
+						Kit.Vector3.new(x, y, along),
+						Kit.Vector3.new(outward, 0, 0),
+						shelfDepth
+					)
 				end)
 			end
 			-- A price tag under the middle of the bay on each shelf edge (kept outside the
@@ -567,8 +268,8 @@ return function(k, root)
 	-- Upright glass-door coolers ---------------------------------------------------------
 	-- `place` maps unit-local coordinates to the world:
 	--   u = along the unit's width (0..6), v = depth from the wall (0) to the door (3)
-	--   cylinderAt(parent, u, v, y, width, height, style, productKind)  an upright item
-	local function cooler(name, kind, place, cylinderAt)
+	--   productAt(parent, u, v, y, run)  one product, its front at depth v
+	local function cooler(name, kind, place, productAt)
 		local unit = k:model(chilled, name)
 		k:mark(unit, "FridgeUnit", { Kind = kind, Working = true })
 		place(unit, "Anchor", 2.5, 3.2, 3.5, 3.5, 3.4, 4.5, ANCHOR)
@@ -579,33 +280,20 @@ return function(k, root)
 		place(unit, "SideB", 5.8, 0.3, 0.8, 6, 3, 7.4, P.dWhite)
 		place(unit, "Header", 0, 0, 7.4, 6, 3, 8.2, P.dWhite)
 		place(unit, "LightStrip", 0.3, 2.5, 7.25, 5.7, 2.7, 7.4, P.neon(225, 240, 255))
-		place(unit, "DoorA", 0.25, 2.85, 0.9, 2.95, 2.95, 7.3, P.glassDecor)
-		place(unit, "DoorB", 3.05, 2.85, 0.9, 5.75, 2.95, 7.3, P.glassDecor)
+		place(unit, "DoorA", 0.25, 2.85, 0.9, 2.95, 2.95, 7.3, P.fridgeGlass)
+		place(unit, "DoorB", 3.05, 2.85, 0.9, 5.75, 2.95, 7.3, P.fridgeGlass)
 		place(unit, "HandleA", 2.7, 2.95, 3.2, 2.85, 3.1, 5.2, P.dDarkSteel)
 		place(unit, "HandleB", 3.15, 2.95, 3.2, 3.3, 3.1, 5.2, P.dDarkSteel)
 
-		local kinds = if kind == "Dairy" then { "jug", "bottle", "jar", "box" } else { "box", "flat", "bag" }
+		local kinds = if kind == "Dairy"
+			then { "carton", "carton", "milkjug", "yogurt", "yogurt" }
+			else { "flat", "flat", "box", "bag" }
 		for _, y in { 0.8, 2.9, 5.0 } do
 			if y > 0.8 then
 				place(unit, "Shelf", 0.2, 0.3, y - 0.12, 5.8, 2.7, y, P.dShelf)
 			end
-			stock(0.2, 5.8, kinds, function(along, productKind, width, height, style)
-				local depth = productKind.d or width
-				if productKind.shape == "cyl" then
-					cylinderAt(unit, along, 2.5 - depth / 2, y, width, height, style, productKind)
-				else
-					place(
-						unit,
-						"Product",
-						along - width / 2,
-						2.5 - depth,
-						y,
-						along + width / 2,
-						2.5,
-						y + height,
-						style
-					)
-				end
+			stock(0.2, 5.8, kinds, function(along, run)
+				productAt(unit, along, 2.5 - run.d / 2, y, run)
 			end)
 		end
 	end
@@ -615,19 +303,15 @@ return function(k, root)
 		local x0 = -8 + index * 6
 		cooler("DairyCooler" .. (index + 1), "Dairy", function(parent, name, u1, v1, y1, u2, v2, y2, style)
 			return k:span(parent, name, x0 + u1, y1, -29.5 + v1, x0 + u2, y2, -29.5 + v2, style)
-		end, function(parent, u, v, y, width, height, style, productKind)
-			-- The dairy wall faces south (+Z).
-			cylinderProduct(
+		end, function(parent, u, v, y, run)
+			-- The dairy wall faces south (+Z); the cooler's back is at v = 0.8.
+			Products.place(
 				k,
 				parent,
-				productKind,
-				x0 + u,
-				y,
-				-29.5 + v,
-				width,
-				height,
-				style,
-				Kit.Vector3.new(0, 0, 1)
+				run,
+				Kit.Vector3.new(x0 + u, y, -29.5 + v),
+				Kit.Vector3.new(0, 0, 1),
+				1.7
 			)
 		end)
 	end
@@ -639,19 +323,15 @@ return function(k, root)
 		local z0 = -26 + index * 6
 		cooler("FrozenCooler" .. (index + 1), "Frozen", function(parent, name, u1, v1, y1, u2, v2, y2, style)
 			return k:span(parent, name, 99.5 - v1, y1, z0 + u1, 99.5 - v2, y2, z0 + u2, style)
-		end, function(parent, u, v, y, width, height, style, productKind)
+		end, function(parent, u, v, y, run)
 			-- The frozen wall faces west (-X).
-			cylinderProduct(
+			Products.place(
 				k,
 				parent,
-				productKind,
-				99.5 - v,
-				y,
-				z0 + u,
-				width,
-				height,
-				style,
-				Kit.Vector3.new(-1, 0, 0)
+				run,
+				Kit.Vector3.new(99.5 - v, y, z0 + u),
+				Kit.Vector3.new(-1, 0, 0),
+				1.7
 			)
 		end)
 	end
@@ -674,10 +354,35 @@ return function(k, root)
 			k:span(island, "RimEast", cx + 2.6, 3, z1, cx + 3, 3.7, z2, P.dSteel)
 			k:span(island, "RimNorth", cx - 2.6, 3, z1, cx + 2.6, 3.7, z1 + 0.4, P.dSteel)
 			k:span(island, "RimSouth", cx - 2.6, 3, z2 - 0.4, cx + 2.6, 3.7, z2, P.dSteel)
-			k:span(island, "Lid", cx - 2.6, 3.55, z1 + 0.4, cx + 2.6, 3.62, z2 - 0.4, P.glassDecor)
+			k:span(island, "Lid", cx - 2.6, 3.55, z1 + 0.4, cx + 2.6, 3.62, z2 - 0.4, P.fridgeGlass)
 			for _, x in { cx - 1.3, cx + 1.3 } do
-				stock(z1 + 0.4, z2 - 0.4, { "flat", "box", "bag" }, function(along, _, width, _, style)
-					k:box(island, "Product", x, 3.25, along, 2.2, 0.4, width, style)
+				-- Lying flat in the well, the printed tops up under the glass lid.
+				stock(z1 + 0.4, z2 - 0.4, { "flat", "box", "bag" }, function(along, run)
+					local product = k:box(
+						island,
+						"Product",
+						x,
+						3.25,
+						along,
+						2.2,
+						0.4,
+						run.w,
+						Kit.style(
+							0,
+							0,
+							0,
+							"SmoothPlastic",
+							{ collide = false, shadow = false, color = run.color }
+						)
+					)
+					Products.printFace(
+						product,
+						"Top",
+						run.brand,
+						Products.inkOn(run.label),
+						{ 0.1, 0.1, 0.8, 0.8 },
+						run.label
+					)
 				end)
 			end
 		end
@@ -713,9 +418,18 @@ return function(k, root)
 
 		-- Impulse rack at the head of the lane.
 		k:span(unit, "ImpulseRack", cx - 1.5, 0, 50, cx + 1.5, 4, 52, P.plinth)
-		for _, y in { 1.2, 2.4, 3.6 } do
-			stock(cx - 1.5, cx + 1.5, { "box", "bag", "flat" }, function(along, _, width, _, style)
-				k:box(unit, "Product", along, y, 49.85, width, 0.7, 0.35, style)
+		-- Three small ledges of sweets and tins facing the queue (north).
+		for _, y in { 0.9, 2.1, 3.3 } do
+			k:span(unit, "ImpulseLedge", cx - 1.5, y - 0.08, 49.35, cx + 1.5, y, 50, Kit.decor(P.dShelf))
+			stock(cx - 1.5, cx + 1.5, { "smallbox", "smallbox", "can" }, function(along, run)
+				Products.place(
+					k,
+					unit,
+					run,
+					Kit.Vector3.new(along, y, 50 - math.min(run.d, 0.6) / 2),
+					Kit.Vector3.new(0, 0, -1),
+					run.d
+				)
 			end)
 		end
 	end
@@ -778,20 +492,31 @@ return function(k, root)
 	for _, x in { -30, -2, 26 } do
 		local stack = k:model(front, "PromoStack")
 		k:span(stack, "Pallet", x - 2, 0, 40.2, x + 2, 0.5, 43.4, P.wood)
-		local style = packaging()
-		for layer = 0, 3 do
-			local inset = layer * 0.2
-			k:span(
-				stack,
-				"Boxes",
-				x - 1.9 + inset,
-				0.5 + layer * 1.1,
-				40.3 + inset,
-				x + 1.9 - inset,
-				1.6 + layer * 1.1,
-				43.3 - inset,
-				style
-			)
+		-- Printed cardboard cases of one product, three across, two deep, three high,
+		-- the top layer a case short.
+		local run = Products.run(k, k:pick({ "plasticbottle", "can", "cereal", "bag" }))
+		local case = Kit.style(0, 0, 0, "Cardboard", { color = run.color })
+		for layer = 0, 2 do
+			for column = 0, 2 do
+				for row = 0, 1 do
+					if not (layer == 2 and column == 2 and row == 1) then
+						local x1 = x - 1.9 + column * 1.27
+						local z1 = 40.3 + row * 1.52
+						local y1 = 0.5 + layer * 1.12
+						local box = k:span(stack, "Boxes", x1, y1, z1, x1 + 1.24, y1 + 1.1, z1 + 1.48, case)
+						if row == 1 then
+							Products.printFace(
+								box,
+								"Back",
+								run.brand,
+								Products.inkOn(run.label),
+								{ 0.1, 0.12, 0.8, 0.76 },
+								run.label
+							)
+						end
+					end
+				end
+			end
 		end
 		local card = k:span(stack, "SaleCard", x - 1.6, 5.1, 43.2, x + 1.6, 6.9, 43.4, P.dYellow)
 		k:text(card, "S", "SPECIAL\nOFFER", { color = Color3.fromRGB(150, 20, 20) })
