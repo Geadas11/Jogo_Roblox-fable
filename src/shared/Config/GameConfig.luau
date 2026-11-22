@@ -34,7 +34,7 @@ return deepFreeze({
 		-- A player holds one thing at a time. Names shown in the HUD:
 		Names = {
 			StockBox = "Stock box",
-			Mop = "Mop",
+			Mop = "Broom",
 			Trash = "Trash bag",
 		},
 		-- Mops available at the maintenance room.

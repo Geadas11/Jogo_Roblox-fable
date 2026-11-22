@@ -56,16 +56,17 @@ function CleanSpills.Begin(task: any, count: number, context: any): number
 		state.Spills[spill] = point
 		zones[tostring(point:GetAttribute("Zone"))] = true
 
-		InteractionService.AddPrompt(spill, {
+		local prompt = InteractionService.AddPrompt(spill, {
 			action = "Clean",
 			object = "Spill",
 			hold = 2.5,
 		}, function(player: Player)
+			player:SetAttribute("Sweeping", nil)
 			if not state.Spills[spill] then
 				return
 			end
 			if CarryService.GetKind(player) ~= "Mop" then
-				context.Notify(player, "You need a mop. There is one in the maintenance room.", "Warning")
+				context.Notify(player, "You need a broom. There is one in the maintenance room.", "Warning")
 				return
 			end
 			state.Spills[spill] = nil
@@ -87,13 +88,23 @@ function CleanSpills.Begin(task: any, count: number, context: any): number
 			tween:Play()
 			context.Progress(1, player)
 		end)
+		-- While the key is held with a broom in hand, everyone sees them sweeping
+		-- (CharacterAnimator reads the attribute).
+		prompt.PromptButtonHoldBegan:Connect(function(player: Player)
+			if CarryService.GetKind(player) == "Mop" then
+				player:SetAttribute("Sweeping", true)
+			end
+		end)
+		prompt.PromptButtonHoldEnded:Connect(function(player: Player)
+			player:SetAttribute("Sweeping", nil)
+		end)
 	end
 
 	local created = 0
 	for _ in state.Spills do
 		created += 1
 	end
-	task.Detail = "Get a mop from the maintenance room."
+	task.Detail = "Get a broom from the maintenance room."
 	return created
 end
 

@@ -63,6 +63,9 @@ type Rig = {
 	Run: number, -- 0 = walking, 1 = running
 	Carry: number,
 	Hold: number, -- 0..1: a bin bag in the right hand
+	Broom: number, -- 0..1: a broom in the right hand
+	Sweep: number, -- 0..1: sweeping (holding the key on a spill)
+	SweepPhase: number,
 	GlanceYaw: number,
 	GlanceTarget: number,
 	NextGlance: number,
@@ -100,6 +103,36 @@ local HEAD_TILT = CFrame.Angles(0.25, 0, 1.25)
 -- fills the corner of the screen.)
 local HOLD_SHOULDER = 1.05
 local HOLD_ELBOW = 0.25
+
+-- Carrying the broom: just in the right hand at your side, the arm a little forward, the
+-- handle sloping up in front of you and the straw trailing behind, clear of the floor.
+-- (The broom hangs from the right hand, see CarryService's BROOM_GRIP; CARRY_GRIP turns
+-- it in the hand from the sweeping angle to this one - solved in Studio.)
+local BROOM_CARRY = {
+	RightShoulder = CFrame.Angles(0.25, 0, 0.06),
+	RightElbow = 0.35,
+}
+local CARRY_GRIP = CFrame.Angles(-0.877, -0.141, 0.198)
+-- Sweeping (only while the key is held on a spill): both arms forward and down, the
+-- right hand low on the handle, the left one higher up and across. Only the arms and the
+-- broom move - the body stays still.
+local BROOM_SWEEP = {
+	RightShoulder = CFrame.Angles(0.5, 0, 0.05),
+	RightElbow = 0.55,
+	LeftShoulder = CFrame.Angles(1.0, 0, -0.45),
+	LeftElbow = 0.95,
+}
+-- How far the arms push the broom out each way (radians at the shoulder), and the arc the
+-- straw swings through at the wrist.
+local SWEEP_ARMS = 0.08
+local SWEEP_ARC = 0.5
+-- How far the broom is tipped (about its wide axis, at the hand) while sweeping, so the
+-- straw brushes the floor. Measured in Studio on an R15 avatar: through the whole stroke
+-- the straw stays 0.02-0.15 studs above the floor, about 2.5 studs in front of you.
+local BROOM_PITCH_SWEEP = 0.15
+local SWEEP_SPEED = 7
+-- Carrying a bag in the right hand, the body leans this far (radians) to the other side.
+local BAG_LEAN = 0.07
 
 -- Where the eyes are in that pose, as a camera offset (relative to the standing view).
 local CURL_EYES = Vector3.new(0, -0.66, -1.3)
@@ -150,6 +183,9 @@ local function track(model: Model, player: Player?)
 		Run = 0,
 		Carry = 0,
 		Hold = 0,
+		Broom = 0,
+		Sweep = 0,
+		SweepPhase = 0,
 		GlanceYaw = 0,
 		GlanceTarget = 0,
 		NextGlance = os.clock() + math.random(3, 7),
@@ -209,10 +245,23 @@ local function pose(rig: Rig, dt: number, now: number)
 	-- What is in their hands: a box in both arms, or a bin bag hanging from the right hand.
 	local carriedKind = if rig.Player then (rig.Player :: Player):GetAttribute("Carrying") else nil
 	local holdingBag = carriedKind == "Trash"
-	local carrying = (type(carriedKind) == "string" and carriedKind ~= "" and not holdingBag)
-		or rig.Model:GetAttribute("Carrying") == true
+	local holdingBroom = carriedKind == "Mop"
+	local carrying = (
+		type(carriedKind) == "string"
+		and carriedKind ~= ""
+		and not holdingBag
+		and not holdingBroom
+	) or rig.Model:GetAttribute("Carrying") == true
 	rig.Carry = ease(rig.Carry, if carrying then 1 else 0, 10, dt)
 	rig.Hold = ease(rig.Hold, if holdingBag then 1 else 0, 10, dt)
+	rig.Broom = ease(rig.Broom, if holdingBroom then 1 else 0, 8, dt)
+	local sweeping = holdingBroom
+		and rig.Player ~= nil
+		and (rig.Player :: Player):GetAttribute("Sweeping") == true
+	rig.Sweep = ease(rig.Sweep, if sweeping then 1 else 0, 6, dt)
+	if rig.Sweep > 0.01 then
+		rig.SweepPhase = (rig.SweepPhase + dt * SWEEP_SPEED) % (math.pi * 2)
+	end
 
 	-- One full stride cycle (two steps) per this many studs: longer when running.
 	local cycleLength = 4.6 + 2.6 * rig.Run
@@ -264,9 +313,20 @@ local function pose(rig: Rig, dt: number, now: number)
 	-- Holding a bag: the right arm out in front, the hand up at the knot (CarryService
 	-- hangs the bag there); it stops swinging. The left arm swings as usual.
 	local hold = rig.Hold
-	local rightSwing = armAmp * (1 - hold)
+	local broom = rig.Broom
+	local sweep = rig.Sweep
+	-- (With a broom in hand the right arm barely swings; sweeping, neither arm does.)
+	local rightSwing = armAmp * (1 - hold) * (1 - 0.7 * broom)
+	local leftSwing = armAmp * (1 - sweep)
 	local holdShoulder = HOLD_SHOULDER * hold
 	local holdElbow = HOLD_ELBOW * hold
+	-- A full bag is heavy: the arm dips with every step and comes back up, the elbow gives
+	-- a little, and the body leans away from the weight.
+	local bagBounce = math.cos(p * 2) * 0.08 * move * hold
+	local bagElbow = math.abs(math.sin(p)) * 0.12 * move * hold
+	local bagLean = BAG_LEAN * hold
+	-- Sweeping: the arms push the broom from side to side and the straw swings.
+	local sweepSin = math.sin(rig.SweepPhase) * sweep
 
 	-- Curled up on the floor under a desk: sitting, knees drawn up, arms around them,
 	-- back hunched, face up to watch the room. Blended in and out.
@@ -287,7 +347,7 @@ local function pose(rig: Rig, dt: number, now: number)
 		set(
 			rig,
 			"Waist",
-			blend(CFrame.Angles(-0.05 * run * move + breath * 0.02, -s * 0.08 * move, 0), CURL.Waist)
+			blend(CFrame.Angles(-0.05 * run * move + breath * 0.02, -s * 0.08 * move, bagLean), CURL.Waist)
 		)
 		-- A suspicious customer's head hanging over at an angle no neck allows.
 		local headTilt = if rig.Model:GetAttribute("Anomaly") == "HeadTilt"
@@ -302,46 +362,38 @@ local function pose(rig: Rig, dt: number, now: number)
 		set(rig, "LeftHip", blend(CFrame.Angles(s * hipAmp, 0, 0), CURL.LeftHip))
 		set(rig, "RightKnee", blend(CFrame.Angles(-kneeRight, 0, 0), CURL.Knee))
 		set(rig, "LeftKnee", blend(CFrame.Angles(-kneeLeft, 0, 0), CURL.Knee))
-		set(
-			rig,
-			"RightShoulder",
-			blend(
-				CFrame.Angles(
-					s * rightSwing + carryShoulder + holdShoulder,
-					0,
-					0.04 * (1 - carry) - 0.12 * hold
-				),
-				CURL.RightShoulder
-			)
+		local rightShoulder = CFrame.Angles(
+			s * rightSwing + carryShoulder + holdShoulder + bagBounce,
+			0,
+			0.04 * (1 - carry) - 0.12 * hold
 		)
-		set(
-			rig,
-			"LeftShoulder",
-			blend(CFrame.Angles(-s * armAmp + carryShoulder, 0, -0.04 * (1 - carry)), CURL.LeftShoulder)
-		)
-		set(
-			rig,
-			"RightElbow",
-			blend(
-				CFrame.Angles(
-					elbowBase * move * (1 - hold)
-						+ math.max(0, s) * 0.3 * run * (1 - hold)
-						+ carryElbow
-						+ holdElbow,
-					0,
-					0
-				),
-				CURL.Elbow
-			)
-		)
-		set(
-			rig,
-			"LeftElbow",
-			blend(
-				CFrame.Angles(elbowBase * move + math.max(0, -s) * 0.3 * run + carryElbow, 0, 0),
-				CURL.Elbow
-			)
-		)
+		local leftShoulder = CFrame.Angles(-s * leftSwing + carryShoulder, 0, -0.04 * (1 - carry))
+		local rightElbow = elbowBase * move * (1 - hold)
+			+ math.max(0, s) * 0.3 * run * (1 - hold)
+			+ carryElbow
+			+ holdElbow
+			+ bagElbow
+		local leftElbow = elbowBase * move + math.max(0, -s) * 0.3 * run + carryElbow
+		if broom > 0.001 then
+			-- The right arm: at your side holding the broom, or forward sweeping, pushing
+			-- it from side to side (the arm swinging as you walk stays on top).
+			local push = CFrame.Angles(0, sweepSin * SWEEP_ARMS, 0)
+			local rightTarget = BROOM_CARRY.RightShoulder:Lerp(BROOM_SWEEP.RightShoulder * push, sweep)
+				* CFrame.Angles(s * rightSwing, 0, 0)
+			rightShoulder = rightShoulder:Lerp(rightTarget, broom)
+			local rightBend = BROOM_CARRY.RightElbow
+				+ (BROOM_SWEEP.RightElbow - BROOM_CARRY.RightElbow) * sweep
+			rightElbow += (rightBend - rightElbow) * broom
+			-- The left hand only joins in to sweep.
+			if sweep > 0.001 then
+				leftShoulder = leftShoulder:Lerp(BROOM_SWEEP.LeftShoulder * push, sweep)
+				leftElbow += (BROOM_SWEEP.LeftElbow - leftElbow) * sweep
+			end
+		end
+		set(rig, "RightShoulder", blend(rightShoulder, CURL.RightShoulder))
+		set(rig, "LeftShoulder", blend(leftShoulder, CURL.LeftShoulder))
+		set(rig, "RightElbow", blend(CFrame.Angles(rightElbow, 0, 0), CURL.Elbow))
+		set(rig, "LeftElbow", blend(CFrame.Angles(leftElbow, 0, 0), CURL.Elbow))
 	else
 		-- R6: each limb is one piece; joints hinge about their own Z axis, and the left
 		-- side's joint frames are mirrored (same sign, opposite swing), as in Roblox's
@@ -362,6 +414,37 @@ local function pose(rig: Rig, dt: number, now: number)
 		set(rig, "RightHip", blend(CFrame.Angles(0, 0, -s * hipAmp), CFrame.Angles(0, 0, 1.45)))
 		set(rig, "LeftHip", blend(CFrame.Angles(0, 0, -s * hipAmp), CFrame.Angles(0, 0, -1.45)))
 		set(rig, "Neck", CFrame.Angles(0, 0, rig.GlanceYaw))
+	end
+
+	-- The broom in the hand: it sways a little as you walk, and swings while sweeping.
+	if broom > 0.001 then
+		local hand = rig.Model:FindFirstChild("RightHand") or rig.Model:FindFirstChild("Right Arm")
+		local grip = if hand then hand:FindFirstChild("ToolGrip") else nil
+		if hand and hand:IsA("BasePart") and grip and grip:IsA("Motor6D") then
+			-- Carried, it turns in the hand to the carrying angle and sways with the walk;
+			-- sweeping, it tips to the floor and swings.
+			-- The stroke turns the broom about the upright through the hand, so the straw
+			-- slides from side to side at the same distance in front and the same height
+			-- (turning it in its own tilted plane pulled the straw back to the feet).
+			local stroke = math.sin(rig.SweepPhase)
+			local up = (hand.CFrame * grip.C0):VectorToObjectSpace(rig.Root.CFrame.UpVector)
+			local sweeping = CFrame.fromAxisAngle(up, stroke * SWEEP_ARC)
+				* CFrame.Angles(BROOM_PITCH_SWEEP, 0, 0)
+			local carried = CARRY_GRIP * CFrame.Angles(s * 0.06 * move, 0, 0)
+			grip.Transform = carried:Lerp(sweeping, sweep)
+		end
+	end
+
+	-- Your own bag hangs from your actual hand (CarryService hangs it from a point in front
+	-- of you; you simulate it, so moving that point to where the hand is this frame makes
+	-- the bag rise and dip with the arm). Everyone else sees the bag you simulated.
+	if hold > 0.5 and rig.Player == Players.LocalPlayer then
+		local hand = rig.Model:FindFirstChild("RightHand")
+		local point = rig.Root:FindFirstChild("CarryHand")
+		if hand and hand:IsA("BasePart") and point and point:IsA("Attachment") then
+			local closed = hand.CFrame * Vector3.new(0, -hand.Size.Y * 0.35, -0.1)
+			point.Position = rig.Root.CFrame:PointToObjectSpace(closed)
+		end
 	end
 end
 
@@ -410,7 +493,8 @@ local function firstPerson(dt: number)
 				and (
 					onHead(descendant, head)
 					or (
-						holding and (descendant.Name == "RightUpperArm" or descendant.Name == "RightLowerArm")
+						holding
+						and (descendant.Name == "RightUpperArm" or descendant.Name == "RightLowerArm")
 					)
 				)
 			descendant.LocalTransparencyModifier = if hidden then 1 else 0

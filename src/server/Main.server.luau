@@ -28,6 +28,7 @@ local SERVICE_ORDER = {
 	"NoiseService",
 	"PowerManager",
 	"TaskManager",
+	"DumpsterService",
 	"HidingService",
 	"SurvivalService",
 	"FlashlightService",

@@ -32,6 +32,15 @@ type Held = {
 -- arm pose is CharacterAnimator's (measured on an R15 avatar).
 local HAND_GRIP = CFrame.new(1.23, 0.06, -1.55)
 
+-- The broom is held in the right hand by a joint ("ToolGrip", in the hand) that
+-- CharacterAnimator turns while sweeping; the arms' pose carries it along. C1 is the
+-- point on the broom the hand closes round (up the handle from the broom's middle), C0
+-- how the broom lies in the hand: angled down and forward, so in the arms' "ready" pose
+-- the straw is just off the floor about 2.7 studs in front of you (solved in Studio on
+-- an R15 avatar: straw 0.12 above the floor, slightly to the right of centre).
+local BROOM_GRIP_C0 = CFrame.Angles(-0.606, 0, -0.253)
+local BROOM_GRIP_C1 = CFrame.new(0, 0.52, 0)
+
 local CarryService = {}
 
 -- Fired when a player picks an item up or lets go of it: (player, item, kind).
@@ -113,7 +122,21 @@ function CarryService.Pickup(player: Player, item: BasePart): boolean
 
 	local joints: { Instance } = {}
 	local grip = item:GetAttribute("GripHeight")
-	if type(grip) == "number" then
+	local character = player.Character
+	local hand = if character then character:FindFirstChild("RightHand") else nil
+	if pickup.Kind == "Mop" and hand and hand:IsA("BasePart") then
+		-- In the right hand (see BROOM_GRIP_C0).
+		item.Massless = true
+		item.CFrame = hand.CFrame * BROOM_GRIP_C0 * BROOM_GRIP_C1:Inverse()
+		local joint = Instance.new("Motor6D")
+		joint.Name = "ToolGrip"
+		joint.Part0 = hand
+		joint.Part1 = item
+		joint.C0 = BROOM_GRIP_C0
+		joint.C1 = BROOM_GRIP_C1
+		joint.Parent = hand
+		joints = { joint }
+	elseif type(grip) == "number" then
 		-- Hung by its handle from the hand, free to swing: it lags behind when you set
 		-- off or turn and sways back, a soft spring settling it. Light, so it does not
 		-- pull the player about; it never collides (CarriedItem, CanCollide off).

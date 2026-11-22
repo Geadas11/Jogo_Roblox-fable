@@ -875,6 +875,7 @@ function Engine.new(options)
 				Vector3 = roblox.Vector3,
 				NumberSequence = roblox.NumberSequence,
 				NumberSequenceKeypoint = roblox.NumberSequenceKeypoint,
+				ColorSequence = roblox.ColorSequence,
 				Vector2 = roblox.Vector2,
 				CFrame = roblox.CFrame,
 				PhysicalProperties = roblox.PhysicalProperties,

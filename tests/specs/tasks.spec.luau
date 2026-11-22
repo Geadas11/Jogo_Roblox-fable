@@ -112,7 +112,7 @@ test("a player picks one thing up, cannot take a second, and can drop it", funct
 	expect.truthy(mops[1]:FindFirstChildOfClass("WeldConstraint"), "welded to the player")
 	local hud = player.PlayerGui.HUD
 	expect.equal(hud.Carrying.Visible, true)
-	expect.equal(hud.Carrying.Label.Text, "MOP")
+	expect.equal(hud.Carrying.Label.Text, "BROOM")
 	expect.equal(hud.Carrying.Hints.Hint.Visible, true, "the drop key is shown")
 
 	use(world, player, mops[2])
@@ -130,7 +130,7 @@ test("a player picks one thing up, cannot take a second, and can drop it", funct
 	-- Set down on the floor near the player, not left behind.
 	local offset = mops[1].Position - player.Character.HumanoidRootPart.Position
 	expect.truthy(math.abs(offset.X) < 5 and math.abs(offset.Z) < 5, "dropped next to the player")
-	expect.truthy(math.abs(mops[1].Position.Y - 2.5) < 0.01, "standing on the floor")
+	expect.truthy(math.abs(mops[1].Position.Y - mops[1].Size.Y / 2) < 0.01, "standing on the floor")
 end)
 
 test("an item cannot be picked up from far away or by two players", function()
@@ -274,7 +274,7 @@ end)
 
 -- Spills ---------------------------------------------------------------------------------
 
-test("spills need a mop, and the mop is kept afterwards", function()
+test("spills need a broom (the Mop item), and it is kept afterwards", function()
 	local world, _, taskManager = boot()
 	local player = join(world, "Tester", 1)
 	expect.truthy(taskManager.Issue("CleanSpills", 2))
@@ -282,8 +282,8 @@ test("spills need a mop, and the mop is kept afterwards", function()
 	expect.equal(#spills, 2)
 
 	use(world, player, spills[1])
-	expect.truthy(spills[1].Parent, "still there without a mop")
-	expect.truthy(string.find(lastNotification(player), "need a mop", 1, true))
+	expect.truthy(spills[1].Parent, "still there without a broom")
+	expect.truthy(string.find(lastNotification(player), "need a broom", 1, true))
 
 	use(world, player, named(world, "Mop")[1])
 	use(world, player, spills[1])
@@ -537,12 +537,26 @@ test("trash bags are carried to the dumpsters behind the store", function()
 	expect.equal(taskManager.GetSnapshot()[1].Progress, 0)
 	expect.truthy(string.find(lastNotification(player), "not carrying a trash bag", 1, true))
 
+	-- Each bin already holds a few bags; the one thrown in joins them.
+	local function binned(dumpster)
+		local count = 0
+		for _, child in dumpster:GetChildren() do
+			if child.Name == "BinnedBag" then
+				count += 1
+			end
+		end
+		return count
+	end
+	local before = binned(dumpsters[1])
+	expect.truthy(before > 0, "bags already in the bin")
+
 	use(world, player, bags[1])
 	expect.equal(player:GetAttribute("Carrying"), "Trash")
 	expect.equal(player.PlayerGui.HUD.Carrying.Label.Text, "TRASH BAG")
 	use(world, player, dumpsters[1])
 	expect.equal(bags[1].Parent, nil)
 	expect.equal(taskManager.GetSnapshot()[1].Progress, 1)
+	expect.equal(binned(dumpsters[1]), before + 1, "the bag lands in the bin")
 
 	use(world, player, bags[2])
 	use(world, player, dumpsters[2])

@@ -40,6 +40,8 @@ local body: Model? = nil
 local pieces: { [string]: Piece } = {}
 local shown: CFrame? = nil
 local walkPhase = 0
+-- 0 = walking, 1 = running flat out (eased, so the gait blends).
+local runBlend = 0
 local danger = 0
 local vignette: { Frame } = {}
 local grade: ColorCorrectionEffect? = nil
@@ -101,6 +103,9 @@ local rig: Model? = nil
 local rigRoot: BasePart? = nil
 local rigHead: BasePart? = nil
 local rigJoints: { [string]: any } = {}
+-- Turns applied under the pose at some joints: the sculpted body comes with its arms
+-- held out (an "A" pose), so its shoulders are turned to bring them down to the sides.
+local restFix: { [string]: CFrame } = {}
 -- Height of the rig's root above the floor (the server's root is ROOT_HEIGHT above it).
 local rigRootHeight = 3.7
 local SERVER_ROOT_HEIGHT = 3.7
@@ -215,7 +220,41 @@ local function setUpRig(template: Model)
 			descendant.CastShadow = true
 		end
 	end
-	drawFace(head)
+	-- (The sculpted body has a face of its own; the simple one gets one drawn on.)
+	if model:GetAttribute("Sculpted") ~= true then
+		drawFace(head)
+	else
+		-- Measure how far out each arm is held in the rest pose, in the torso's frame, and
+		-- turn the shoulder so it hangs straight down instead.
+		for _, side in { "Right", "Left" } do
+			local upper = model:FindFirstChild(side .. "UpperArm")
+			local hand = model:FindFirstChild(side .. "Hand")
+			local torso = model:FindFirstChild("UpperTorso")
+			local shoulder = rigJoints[side .. "Shoulder"]
+			if
+				upper
+				and upper:IsA("BasePart")
+				and hand
+				and hand:IsA("BasePart")
+				and torso
+				and torso:IsA("BasePart")
+				and shoulder
+			then
+				-- (The joint's own frame: C0 on a Motor6D, its first attachment on an
+				-- AnimationConstraint.)
+				local frame = if shoulder:IsA("Motor6D")
+					then torso.CFrame * shoulder.C0
+					elseif shoulder.Attachment0 then shoulder.Attachment0.WorldCFrame
+					else torso.CFrame
+				local along = frame:VectorToObjectSpace(hand.Position - upper.Position)
+				if along.Magnitude > 0.1 then
+					-- A touch out from the body, so the hands clear the apron.
+					local down = Vector3.new(if side == "Right" then 0.12 else -0.12, -1, 0).Unit
+					restFix[side .. "Shoulder"] = CFrame.fromRotationBetweenVectors(along.Unit, down)
+				end
+			end
+		end
+	end
 	rigRootHeight = humanoid.HipHeight + root.Size.Y / 2
 	rig, rigRoot, rigHead = model, root, head
 	-- Replace the simple body.
@@ -230,40 +269,60 @@ end
 local function joint(name: string, cframe: CFrame)
 	local motor = rigJoints[name]
 	if motor then
-		motor.Transform = cframe
+		local fix = restFix[name]
+		motor.Transform = if fix then fix * cframe else cframe
 	end
 end
 
--- Poses the rig: a stiff walk with arms that hang and barely move; while chasing it
--- leans in and reaches; while staring the head slowly tips to one side.
+-- Poses the rig: a stiff walk with arms that hang and barely move; while staring the
+-- head slowly tips to one side. Running (chasing someone at full speed) blends into a
+-- lurching sprint: long strides, knees snapping up, the body thrown forward, the long
+-- arms pumping wildly and the head jerking about - fast, but never quite human.
 local function poseRig(base: CFrame, speed: number, state: string, dt: number)
 	local root = rigRoot :: BasePart
-	walkPhase += dt * speed * 0.9
+	local runTarget = math.clamp((speed - 9) / 5, 0, 1)
+	runBlend += (runTarget - runBlend) * (1 - math.exp(-6 * dt))
+	local run = runBlend
+	-- Longer strides when running: the legs cycle a little slower for the speed.
+	walkPhase += dt * speed * (0.9 - 0.3 * run)
 	local stride = math.clamp(speed / 9, 0, 1)
-	local s = math.sin(walkPhase)
+	local p = walkPhase
+	local s = math.sin(p)
 	local chase = if state == "Chase" then 1 else 0
 	local now = os.clock()
 	local tilt = if state == "Observe" then math.sin(now * 0.6) * 0.5 else 0.09
-	local bob = math.abs(math.cos(walkPhase)) * 0.1 * stride
+	local bob = math.abs(math.cos(p)) * (0.1 + 0.35 * run) * stride
+	-- Jerks of the head while it runs: two uneven wobbles, never in step with the legs.
+	local twitch = run * (math.sin(now * 13.7) * 0.12 + math.sin(now * 7.3 + 1.1) * 0.08)
 
 	root.CFrame = base * CFrame.new(0, rigRootHeight - SERVER_ROOT_HEIGHT, 0)
-	joint("Root", CFrame.new(0, bob, 0) * CFrame.Angles(-0.28 * chase, 0, 0))
-	joint("Waist", CFrame.Angles(-0.1 * chase, 0, 0))
-	-- The head does not bob with the body: it stays level, tilted, a little forward.
-	joint("Neck", CFrame.Angles(0.12 + 0.2 * chase, 0, tilt))
-	local legAmp = (0.45 + 0.25 * chase) * stride
-	joint("RightHip", CFrame.Angles(-s * legAmp, 0, 0))
-	joint("LeftHip", CFrame.Angles(s * legAmp, 0, 0))
-	-- Knees that bend too little: the walk looks wrong.
-	joint("RightKnee", CFrame.Angles(-0.25 * stride * math.max(0, -math.sin(walkPhase + 0.9)), 0, 0))
-	joint("LeftKnee", CFrame.Angles(-0.25 * stride * math.max(0, math.sin(walkPhase + 0.9)), 0, 0))
-	-- Arms hang straight down; reaching forward when it is after you.
-	local reach = 0.9 * chase
-	local armSwing = s * 0.06 * stride
-	joint("RightShoulder", CFrame.Angles(reach + armSwing, 0, 0.03))
-	joint("LeftShoulder", CFrame.Angles(reach - armSwing, 0, -0.03))
-	joint("RightElbow", CFrame.Angles(0.15 * chase, 0, 0))
-	joint("LeftElbow", CFrame.Angles(0.15 * chase, 0, 0))
+	-- The body thrown forward, twisting with each stride.
+	local lean = 0.28 * chase * (1 - run) + 0.55 * run
+	joint("Root", CFrame.new(0, bob - 0.15 * run, 0) * CFrame.Angles(-lean, s * 0.12 * run, 0))
+	joint("Waist", CFrame.Angles(-0.1 * chase * (1 - run) - 0.15 * run, -s * 0.25 * run, 0))
+	-- The head does not bob with the body: it stays level (pushed up against the lean),
+	-- tilted, a little forward.
+	joint(
+		"Neck",
+		CFrame.Angles(0.12 + 0.2 * chase * (1 - run) + 0.35 * run + twitch, twitch * 0.6, tilt + twitch * 0.5)
+	)
+	local legAmp = (0.45 + 0.25 * chase) * stride * (1 - run) + 1.0 * run
+	joint("RightHip", CFrame.Angles(-s * legAmp - 0.25 * run, 0, 0))
+	joint("LeftHip", CFrame.Angles(s * legAmp - 0.25 * run, 0, 0))
+	-- Walking, knees that bend too little (the walk looks wrong); running, they snap up
+	-- high behind as each leg swings back.
+	local kneeAmp = 0.25 * stride * (1 - run) + 1.5 * run
+	joint("RightKnee", CFrame.Angles(-kneeAmp * math.max(0, -math.sin(p + 0.9)), 0, 0))
+	joint("LeftKnee", CFrame.Angles(-kneeAmp * math.max(0, math.sin(p + 0.9)), 0, 0))
+	-- Arms: hanging, reaching forward when it is after you; running, swinging hard
+	-- against the legs with the elbows bent, flung a little out to the sides.
+	local reach = 0.9 * chase * (1 - run)
+	local armSwing = s * (0.06 * stride * (1 - run) + 1.1 * run)
+	local flail = 0.18 * run
+	joint("RightShoulder", CFrame.Angles(reach + armSwing + 0.2 * run, 0, 0.03 + flail))
+	joint("LeftShoulder", CFrame.Angles(reach - armSwing + 0.2 * run, 0, -0.03 - flail))
+	joint("RightElbow", CFrame.Angles(0.15 * chase * (1 - run) + (0.7 + 0.4 * math.max(0, s)) * run, 0, 0))
+	joint("LeftElbow", CFrame.Angles(0.15 * chase * (1 - run) + (0.7 + 0.4 * math.max(0, -s)) * run, 0, 0))
 end
 
 -- Where its head is, for the catch sequence.

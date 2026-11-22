@@ -6,6 +6,7 @@
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerStorage = game:GetService("ServerStorage")
 local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage.Shared
@@ -245,7 +246,70 @@ local function stain(part: BasePart, seed: number, amount: number)
 	end
 end
 
+-- The sculpted body: a rigged R15 avatar kept in ServerStorage.PropMeshes.MonsterAvatar
+-- (made in Studio with Roblox's mesh and avatar generators: the gaunt worker in the
+-- grimy yellow shirt and long dark apron, a gaunt old face). It lives in the place
+-- file, not in the source; without it the body below, built from Roblox's own parts,
+-- is used instead.
+local function sculptedTemplate(): Model?
+	local folder = ServerStorage:FindFirstChild("PropMeshes")
+	local source = if folder then folder:FindFirstChild("MonsterAvatar") else nil
+	if not source or not source:IsA("Model") or not source:FindFirstChildOfClass("Humanoid") then
+		return nil
+	end
+	local rig = source:Clone()
+	rig.Name = "TheCustomerRig"
+	for _, descendant in rig:GetDescendants() do
+		if descendant:IsA("LuaSourceContainer") then
+			descendant:Destroy()
+		elseif descendant:IsA("BasePart") then
+			descendant.CanCollide = false
+			descendant.CanTouch = false
+			descendant.CanQuery = false
+			descendant.Massless = true
+		end
+	end
+	local humanoid = rig:FindFirstChildOfClass("Humanoid") :: Humanoid
+	humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+	humanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
+	-- It already has a face of its own: clients must not draw one.
+	rig:SetAttribute("Sculpted", true)
+	-- Blood soaked into the apron: a thin clear sheet just in front of it carrying the
+	-- stains (the apron itself is part of the body's texture).
+	local lowerTorso = rig:FindFirstChild("LowerTorso")
+	local upperTorso = rig:FindFirstChild("UpperTorso")
+	if lowerTorso and lowerTorso:IsA("BasePart") and upperTorso and upperTorso:IsA("BasePart") then
+		local up, low = upperTorso.Size, lowerTorso.Size
+		local front = wear(
+			rig,
+			lowerTorso,
+			"ApronStains",
+			Vector3.new(low.X * 0.5, 1.7, 0.02),
+			CFrame.new(0, -0.75, -(low.Z / 2 + 0.06)),
+			APRON
+		)
+		front.Transparency = 1
+		stain(front, 13, 7)
+		local bib = wear(
+			rig,
+			upperTorso,
+			"BibStains",
+			Vector3.new(up.X * 0.28, up.Y * 0.4, 0.02),
+			CFrame.new(0, -up.Y * 0.2, -(up.Z / 2 + 0.05)),
+			APRON
+		)
+		bib.Transparency = 1
+		stain(bib, 7, 4)
+	end
+	return rig
+end
+
 local function buildRigTemplate()
+	local sculpted = sculptedTemplate()
+	if sculpted then
+		sculpted.Parent = ReplicatedStorage
+		return
+	end
 	local description = Instance.new("HumanoidDescription")
 	description.HeightScale = 1.42
 	description.WidthScale = 0.78

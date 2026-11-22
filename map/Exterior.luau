@@ -122,7 +122,7 @@ return function(k, root)
 	)
 
 	-- Wall lights around the building.
-	local function wallLight(parent, name, x, y, z, side, zone, flicker)
+	local function wallLight(parent, name, x, y, z, side, zone, flicker, brightness)
 		local dx, dz = 0, 0
 		if side == "S" then
 			dz = 1
@@ -135,6 +135,7 @@ return function(k, root)
 		end
 		local wide = if dx == 0 then 1.2 else 0.3
 		local deep = if dx == 0 then 0.3 else 1.2
+		local power = brightness or 0.9
 		local lamp = k:span(
 			parent,
 			name,
@@ -146,23 +147,26 @@ return function(k, root)
 			z + deep + dz * 0.3,
 			P.neon(240, 232, 214)
 		)
-		k:light(
-			lamp,
-			"SurfaceLight",
-			{ brightness = 0.9, range = 24, angle = 140, color = Color3.fromRGB(240, 232, 214), side = side }
-		)
+		k:light(lamp, "SurfaceLight", {
+			brightness = power,
+			range = if brightness then 30 else 24,
+			angle = 140,
+			color = Color3.fromRGB(240, 232, 214),
+			side = side,
+		})
 		k:mark(
 			lamp,
 			"LightFixture",
-			{ Zone = zone, Circuit = "Exterior", BaseBrightness = 0.9, Flicker = flicker == true }
+			{ Zone = zone, Circuit = "Exterior", BaseBrightness = power, Flicker = flicker == true }
 		)
 	end
 	wallLight(lot, "FrontLightWest", -80, 12, 80.5, "S", "ParkingLot")
 	wallLight(lot, "FrontLightEast", 80, 12, 80.5, "S", "ParkingLot")
 	wallLight(back, "BackDoorLight", -7.5, 9, -80.5, "N", "BackLot")
 	wallLight(back, "DockLight", -56, 13.5, -80.5, "N", "BackLot", true)
-	-- Over the dumpsters: without it the trash run ends in pitch darkness.
-	wallLight(back, "DumpsterLight", 30, 10, -80.5, "N", "BackLot")
+	-- Over the dumpsters: without it the trash run ends in pitch darkness (brighter than
+	-- the others: it has to reach into the bins, 10-16 studs out).
+	wallLight(back, "DumpsterLight", 32, 10, -80.5, "N", "BackLot", false, 1.8)
 	wallLight(alleys, "EastAlleyLight", 100.5, 11, 54.5, "E", "EastAlley")
 	wallLight(alleys, "WestAlleyLight", -100.5, 11, -20, "W", "WestAlley", true)
 
