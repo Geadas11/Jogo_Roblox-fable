@@ -124,7 +124,7 @@ return function(k, root)
 		11,
 		"x",
 		{ { -88, 70 }, { -70, 70, true } },
-		{ color = Color3.fromRGB(226, 240, 236), brightness = 0.9, range = 22 }
+		{ color = Color3.fromRGB(232, 214, 170), brightness = 0.55, range = 20 }
 	)
 	fixtures(
 		"BathroomB",
@@ -132,7 +132,7 @@ return function(k, root)
 		11,
 		"x",
 		{ { -88, 50, true }, { -70, 50 } },
-		{ color = Color3.fromRGB(226, 240, 236), brightness = 0.9, range = 22 }
+		{ color = Color3.fromRGB(232, 214, 170), brightness = 0.55, range = 20 }
 	)
 
 	-- Zones -------------------------------------------------------------------------------

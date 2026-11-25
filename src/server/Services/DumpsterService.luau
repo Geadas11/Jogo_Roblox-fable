@@ -47,9 +47,10 @@ type Bin = {
 
 local bins: { [BasePart]: Bin } = {}
 
--- Which way the bin faces: the side of its block that points at the store.
+-- Which way the bin faces: the side of its block that points away from the store (the
+-- bins stand with their backs to the building wall, fronts to the yard).
 local function frontOf(part: BasePart): Vector3
-	local toStore = Vector3.new(-part.Position.X, 0, -part.Position.Z)
+	local toStore = Vector3.new(part.Position.X, 0, part.Position.Z)
 	local best, bestDot = part.CFrame.LookVector, -math.huge
 	for _, axis in { part.CFrame.LookVector, part.CFrame.RightVector } do
 		for _, sign in { 1, -1 } do
@@ -198,10 +199,11 @@ local function dress(part: BasePart): Bin
 	end
 	-- Left one shut, lying on the slope.
 	lid(CFrame.new(-w / 4, y0 + (hf + hb) / 2 + 0.17, 0) * CFrame.Angles(-slope, 0, 0))
-	-- Right one thrown open: flipped over its hinge at the back, leaning back.
+	-- Right one thrown open: flipped over its hinge at the back, standing almost upright
+	-- (the bin is against a wall).
 	local hinge = Vector3.new(w / 4, y0 + hb + 0.08, d / 2 + 0.02)
-	local up = Vector3.new(0, 0.8, 0.6)
-	local outward = Vector3.new(0, -0.6, 0.8)
+	local up = Vector3.new(0, 0.99, 0.12).Unit
+	local outward = Vector3.new(0, -0.12, 0.99).Unit
 	lid(CFrame.fromMatrix(hinge + up * lidLength / 2, Vector3.new(1, 0, 0), outward))
 
 	-- Fork pockets on the sides, a rib across the front, the front corner posts.

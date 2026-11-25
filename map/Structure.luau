@@ -115,16 +115,126 @@ return function(k, root)
 
 	-- Doors (created open, see Kit:door) -------------------------------------------------
 	k:door(doors, "StaffDoor", "z", -60, 29, 34, 1, false, P.door, { zone = "StaffCorridor" })
-	k:door(doors, "RestroomBDoor", "z", -60, 47, 52, -1, true, P.doorWood, { zone = "BathroomB" })
-	k:door(doors, "RestroomADoor", "z", -60, 67, 72, -1, true, P.doorWood, { zone = "BathroomA" })
-	k:door(doors, "EmployeeRoomDoor", "z", -70, -12, -7, -1, true, P.doorWood, { zone = "EmployeeRoom" })
-	k:door(doors, "OfficeDoor", "z", -70, 22, 27, -1, false, P.doorWood, { zone = "Office" })
-	k:door(doors, "CorridorStorageDoor", "x", -30, -68, -63, -1, true, P.door, { zone = "Storage" })
-	k:door(doors, "StockDoorWest", "x", -30, -25, -20, -1, true, P.door, { zone = "Storage", height = 8.4 })
-	k:door(doors, "StockDoorEast", "x", -30, -20, -15, -1, false, P.door, { zone = "Storage", height = 8.4 })
-	k:door(doors, "MaintenanceWestDoor", "z", 10, -47, -42, 1, true, P.door, { zone = "Maintenance" })
-	k:door(doors, "MaintenanceEastDoor", "z", 40, -47, -42, 1, true, P.door, { zone = "Refrigeration" })
-	k:door(doors, "ElectricalDoor", "x", -58, 22, 27, -1, true, P.door, { zone = "Electrical" })
+	k:door(
+		doors,
+		"RestroomBDoor",
+		"z",
+		-60,
+		47,
+		52,
+		-1,
+		true,
+		P.doorWood,
+		{ zone = "BathroomB", doorSign = "WOMEN", doorIcon = "🚺" }
+	)
+	k:door(
+		doors,
+		"RestroomADoor",
+		"z",
+		-60,
+		67,
+		72,
+		-1,
+		true,
+		P.doorWood,
+		{ zone = "BathroomA", doorSign = "MEN", doorIcon = "🚹" }
+	)
+	k:door(
+		doors,
+		"EmployeeRoomDoor",
+		"z",
+		-70,
+		-12,
+		-7,
+		-1,
+		true,
+		P.doorWood,
+		{ zone = "EmployeeRoom", label = "EMPLOYEE ROOM" }
+	)
+	k:door(
+		doors,
+		"OfficeDoor",
+		"z",
+		-70,
+		22,
+		27,
+		-1,
+		false,
+		P.doorWood,
+		{ zone = "Office", label = "OFFICE" }
+	)
+	k:door(
+		doors,
+		"CorridorStorageDoor",
+		"x",
+		-30,
+		-68,
+		-63,
+		-1,
+		true,
+		P.door,
+		{ zone = "Storage", label = "STORAGE" }
+	)
+	k:door(
+		doors,
+		"StockDoorWest",
+		"x",
+		-30,
+		-25,
+		-20,
+		-1,
+		true,
+		P.door,
+		{ zone = "Storage", height = 8.4, label = "STOCK ROOM" }
+	)
+	k:door(
+		doors,
+		"StockDoorEast",
+		"x",
+		-30,
+		-20,
+		-15,
+		-1,
+		false,
+		P.door,
+		{ zone = "Storage", height = 8.4, label = "STOCK ROOM" }
+	)
+	k:door(
+		doors,
+		"MaintenanceWestDoor",
+		"z",
+		10,
+		-47,
+		-42,
+		1,
+		true,
+		P.door,
+		{ zone = "Maintenance", label = "MAINTENANCE · BROOMS" }
+	)
+	k:door(
+		doors,
+		"MaintenanceEastDoor",
+		"z",
+		40,
+		-47,
+		-42,
+		1,
+		true,
+		P.door,
+		{ zone = "Refrigeration", label = "REFRIGERATION" }
+	)
+	k:door(
+		doors,
+		"ElectricalDoor",
+		"x",
+		-58,
+		22,
+		27,
+		-1,
+		true,
+		P.door,
+		{ zone = "Electrical", label = "ELECTRICAL" }
+	)
 	k:door(
 		doors,
 		"FreezerDoor",
@@ -135,9 +245,20 @@ return function(k, root)
 		1,
 		true,
 		P.steel,
-		{ zone = "Refrigeration", thick = 0.6 }
+		{ zone = "Refrigeration", thick = 0.6, label = "FREEZER" }
 	)
-	k:door(doors, "BackDoor", "x", -80, -10, -5, -1, false, P.door, { zone = "BackLot" })
+	k:door(
+		doors,
+		"BackDoor",
+		"x",
+		-80,
+		-10,
+		-5,
+		-1,
+		false,
+		P.door,
+		{ zone = "BackLot", label = "BACK DOOR · DUMPSTERS" }
+	)
 
 	local exitDoor = k:door(
 		doors,
@@ -149,7 +270,7 @@ return function(k, root)
 		1,
 		true,
 		P.red,
-		{ zone = "EastAlley", closed = true }
+		{ zone = "EastAlley", closed = true, label = "EMERGENCY EXIT" }
 	)
 	k:mark(exitDoor, "EmergencyExit", { Locked = true })
 

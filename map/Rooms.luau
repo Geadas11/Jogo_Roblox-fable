@@ -19,16 +19,17 @@ return function(k, root)
 	end
 
 	-- Fills a footprint with a loose row of cardboard boxes standing on height `y`.
-	local function boxRow(parent, x1, z1, x2, z2, y, maxHeight)
+	-- `solid`: a full row of full-height boxes (something will be stacked on it).
+	local function boxRow(parent, x1, z1, x2, z2, y, maxHeight, solid)
 		local alongX = (x2 - x1) >= (z2 - z1)
 		local cursor = if alongX then x1 else z1
 		local limit = if alongX then x2 else z2
 		local depth = if alongX then z2 - z1 else x2 - x1
 		while cursor < limit - 1.2 do
 			local length = math.min(k:range(1.6, 3.2), limit - cursor)
-			if not k:chance(0.12) then
+			if solid or not k:chance(0.12) then
 				local d = k:range(depth * 0.6, depth * 0.95)
-				local h = k:range(maxHeight * 0.45, maxHeight)
+				local h = if solid then maxHeight else k:range(maxHeight * 0.45, maxHeight)
 				if alongX then
 					cardboardBox(parent, cursor, y, z1 + (depth - d) / 2, length - 0.15, h, d)
 				else
@@ -70,9 +71,11 @@ return function(k, root)
 		k:span(unit, "Pallet", x, 0, z, x + 5, 0.5, z + 5, P.wood)
 		if layers > 0 then
 			k:span(unit, "Collider", x + 0.2, 0.5, z + 0.2, x + 4.8, 0.5 + layers * 1.6, z + 4.8, P.collider)
+			-- Every layer but the top one is a full layer, so nothing above it floats.
 			for layer = 0, layers - 1 do
-				boxRow(unit, x + 0.2, z + 0.2, x + 4.8, z + 2.4, 0.5 + layer * 1.6, 1.6)
-				boxRow(unit, x + 0.2, z + 2.6, x + 4.8, z + 4.8, 0.5 + layer * 1.6, 1.6)
+				local solid = layer < layers - 1
+				boxRow(unit, x + 0.2, z + 0.2, x + 4.8, z + 2.4, 0.5 + layer * 1.6, 1.6, solid)
+				boxRow(unit, x + 0.2, z + 2.6, x + 4.8, z + 4.8, 0.5 + layer * 1.6, 1.6, solid)
 			end
 		end
 	end
@@ -626,14 +629,280 @@ return function(k, root)
 	k:text(clockDisplay, "W", "CLOCK IN", { glow = 1.5, color = Color3.fromRGB(10, 40, 20) })
 	bin(staff, -72.6, -27.6)
 
+	-- A filthy public restroom ------------------------------------------------------------
+	-- Old square tiles up to shoulder height (yellowed, grout gone black, some cracked,
+	-- some missing, black mould creeping up from the floor), stained plaster above them
+	-- with rust running down, a grimy floor, and bare pipes along the walls.
+	-- Stall walls: old dark wood partitions gone black with grime; the counter yellowed.
+	local STALL = Kit.style(60, 46, 32, "Wood")
+	local COUNTER = Kit.style(150, 138, 108, "Concrete")
+	-- An old mirror: clouded, dark and stained, barely reflecting.
+	local MIRROR = Kit.style(70, 72, 66, "Glass", { reflect = 0.25 })
+	-- A fitting the game dresses with a sculpted mesh (RestroomService): the plain part
+	-- stays as its shape, and records where the mesh goes - its base on the floor or the
+	-- wall, and which way it faces (dir: +1 / -1 along Z for the sinks, 0 = facing +X).
+	local function fitting(part, kind, x, y, z, dir)
+		k:mark(part, "Fitting", { Kind = kind, BaseX = x, BaseY = y, BaseZ = z, Facing = dir })
+	end
+
+	-- A thin layer laid over a wall or the floor, in one of the restroom materials. The
+	-- materials are MaterialVariants generated in Studio and kept in the place's
+	-- MaterialService (FilthyWallTiles, FilthyFloorTiles, StainedPlaster); a place
+	-- without them shows the plain base material instead.
+	local function surface(parent, name, x1, y1, z1, x2, y2, z2, material, variant, color)
+		local part = k:span(
+			parent,
+			name,
+			x1,
+			y1,
+			z1,
+			x2,
+			y2,
+			z2,
+			Kit.style(
+				color.R * 255,
+				color.G * 255,
+				color.B * 255,
+				material,
+				{ collide = false, shadow = false }
+			)
+		)
+		part.MaterialVariant = variant
+		return part
+	end
+
+	-- Blood ------------------------------------------------------------------------------
+	local BLOOD = Color3.fromRGB(104, 8, 10)
+
+	-- A transparent sheet laid on a face, with a SurfaceGui to draw blood on. `side` is the
+	-- way the face looks (N/S/E/W); returns the gui and the sheet's size along the face.
+	local function bloodSheet(parent, x1, y1, z1, x2, y2, z2, side)
+		local part = k:span(
+			parent,
+			"BloodLayer",
+			x1,
+			y1,
+			z1,
+			x2,
+			y2,
+			z2,
+			Kit.style(0, 0, 0, "SmoothPlastic", { collide = false, shadow = false, alpha = 1 })
+		)
+		local gui = Kit.Instance.new("SurfaceGui")
+		gui.Name = "Blood"
+		gui.Face = Kit.Enum.NormalId[({ N = "Front", S = "Back", W = "Left", E = "Right" })[side]]
+		gui.SizingMode = Kit.Enum.SurfaceGuiSizingMode.PixelsPerStud
+		gui.PixelsPerStud = 50
+		gui.LightInfluence = 1
+		gui.Parent = part
+		local along = if side == "N" or side == "S" then x2 - x1 else z2 - z1
+		return gui, along, y2 - y1
+	end
+
+	local function stroke(gui, W, H, cx, cy, w, h, rotation, alpha, round)
+		local frame = Kit.Instance.new("Frame")
+		frame.AnchorPoint = Kit.Vector2.new(0.5, 0.5)
+		-- (cy counts up from the bottom of the face; the gui counts down from the top.)
+		frame.Position = Kit.UDim2.new(cx / W, 0, 1 - cy / H, 0)
+		frame.Size = Kit.UDim2.new(w / W, 0, h / H, 0)
+		frame.Rotation = rotation
+		frame.BackgroundColor3 = BLOOD
+		frame.BackgroundTransparency = alpha
+		frame.BorderSizePixel = 0
+		frame.Parent = gui
+		if round then
+			local corner = Kit.Instance.new("UICorner")
+			corner.CornerRadius = Kit.UDim.new(0.5, 0)
+			corner.Parent = frame
+		end
+		return frame
+	end
+
+	-- A bloody handprint, `size` studs tall, centred at (cx, cy) in studs on the face,
+	-- tilted `angle` degrees, a smear dragged down from it and a few runs.
+	local function handprint(gui, W, H, cx, cy, size, angle, mirrored)
+		local a = math.rad(angle)
+		local function at(dx, dy)
+			-- Turn a point of the hand (studs, relative to the palm, y up) by the hand's angle.
+			local x = dx * math.cos(a) + dy * math.sin(a)
+			local y = -dx * math.sin(a) + dy * math.cos(a)
+			return cx + x, cy + y
+		end
+		local s = size
+		local px, py = at(0, -0.12 * s)
+		stroke(gui, W, H, px, py, 0.5 * s, 0.55 * s, angle, k:range(0.05, 0.2), true)
+		local flip = if mirrored then -1 else 1
+		-- Thumb, then four fingers fanning out.
+		local fingers = {
+			{ -0.33 * flip, -0.02, 0.13, 0.32, -40 * flip },
+			{ -0.18 * flip, 0.36, 0.12, 0.38, -10 * flip },
+			{ -0.04 * flip, 0.42, 0.12, 0.42, -2 * flip },
+			{ 0.1 * flip, 0.39, 0.12, 0.4, 6 * flip },
+			{ 0.22 * flip, 0.3, 0.1, 0.32, 16 * flip },
+		}
+		for _, f in fingers do
+			local fx, fy = at(f[1] * s, f[2] * s)
+			stroke(gui, W, H, fx, fy, f[3] * s, f[4] * s, angle + f[5], k:range(0.05, 0.25), true)
+		end
+		-- The hand slid down a little, and blood ran.
+		local sx, sy = at(0, -0.5 * s)
+		stroke(gui, W, H, sx, sy, 0.42 * s, 0.5 * s, angle, 0.55, true)
+		for _ = 1, k:int(2, 4) do
+			local dx = k:range(-0.2, 0.2) * s
+			local length = k:range(0.3, 1.4)
+			local rx, ry = at(dx, -0.3 * s)
+			stroke(gui, W, H, rx, ry - length / 2, k:range(0.025, 0.05), length, 0, k:range(0.15, 0.4), false)
+		end
+	end
+
+	-- Splatter: a burst of drops of different sizes.
+	local function splatter(gui, W, H, cx, cy, spread)
+		for _ = 1, k:int(8, 16) do
+			local r = k:range(0.04, 0.2)
+			stroke(
+				gui,
+				W,
+				H,
+				cx + k:range(-spread, spread),
+				cy + k:range(-spread, spread) * 0.7,
+				r,
+				r,
+				0,
+				k:range(0.1, 0.5),
+				true
+			)
+		end
+	end
+
+	-- Dirties one restroom whose walls are x = -100 (W) and x = -60 (E), z = zA (north)
+	-- and zB (south): tiles to shoulder height, stained plaster above, a filthy floor.
+	-- The east wall has the door opening, doorFrom..doorTo along Z, 7.5 tall.
+	local function filthyRoom(room, zA, zB, doorFrom, doorTo)
+		local tileTop = 5.2
+		local d = 0.5
+		local t = 0.04
+		local doorTop = 7.5
+		local TILES = Color3.fromRGB(196, 186, 156)
+		local PLASTER = Color3.fromRGB(112, 104, 92)
+		local function wallX(x, z1, z2, y1, y2)
+			if z2 - z1 < 0.05 or y2 - y1 < 0.05 then
+				return
+			end
+			if y2 <= tileTop then
+				surface(room, "Tiles", x, y1, z1, x + t, y2, z2, "CeramicTiles", "FilthyWallTiles", TILES)
+			elseif y1 >= tileTop then
+				surface(room, "Plaster", x, y1, z1, x + t, y2, z2, "Plaster", "StainedPlaster", PLASTER)
+			else
+				surface(
+					room,
+					"Tiles",
+					x,
+					y1,
+					z1,
+					x + t,
+					tileTop,
+					z2,
+					"CeramicTiles",
+					"FilthyWallTiles",
+					TILES
+				)
+				surface(room, "Plaster", x, tileTop, z1, x + t, y2, z2, "Plaster", "StainedPlaster", PLASTER)
+			end
+		end
+		-- West wall: whole.
+		wallX(-100 + d, zA + d, zB - d, 0, 11)
+		-- East wall: either side of the door, and above it.
+		local ex = -60 - d - t
+		wallX(ex, zA + d, doorFrom, 0, 11)
+		wallX(ex, doorTo, zB - d, 0, 11)
+		wallX(ex, doorFrom, doorTo, doorTop, 11)
+		for _, z in { zA + d, zB - d - t } do
+			surface(
+				room,
+				"Tiles",
+				-100 + d,
+				0,
+				z,
+				-60 - d,
+				tileTop,
+				z + t,
+				"CeramicTiles",
+				"FilthyWallTiles",
+				TILES
+			)
+			surface(
+				room,
+				"Plaster",
+				-100 + d,
+				tileTop,
+				z,
+				-60 - d,
+				11,
+				z + t,
+				"Plaster",
+				"StainedPlaster",
+				PLASTER
+			)
+		end
+		surface(
+			room,
+			"FloorTiles",
+			-100 + d,
+			0.01,
+			zA + d,
+			-60 - d,
+			0.04,
+			zB - d,
+			"CeramicTiles",
+			"FilthyFloorTiles",
+			Color3.fromRGB(122, 114, 100)
+		)
+		-- The tile edge: a bead along the top of the tiling on the stall wall.
+		k:span(
+			room,
+			"TileEdge",
+			-99.5,
+			tileTop - 0.05,
+			zA + 0.5,
+			-99.35,
+			tileTop + 0.1,
+			zB - 0.5,
+			Kit.decor(Kit.style(150, 140, 110, "SmoothPlastic"))
+		)
+		-- Bare pipes: a thick rusty one along the west wall near the ceiling, dropping
+		-- down in the corner, and a thin one along the floor.
+		local pipe = Kit.decor(Kit.style(84, 62, 46, "CorrodedMetal"))
+		k:cyl(room, "Pipe", -99.1, 9.2, (zA + zB) / 2, 0.6, zB - zA - 1.2, pipe, "z")
+		k:cyl(room, "Pipe", -99.1, 0, zA + 1.2, 0.6, 9.5, pipe)
+		k:cyl(room, "PipeLow", -99.3, 0.3, (zA + zB) / 2, 0.25, zB - zA - 1.2, pipe, "z")
+
+		-- Blood: handprints dragged along the east wall by the door and on the far wall.
+		local gui, W, H = bloodSheet(room, ex - 0.03, 0.5, doorTo + 0.3, ex - 0.01, 7, zB - d - 0.5, "W")
+		handprint(gui, W, H, 1.2, 4.1, 0.9, -12, false)
+		handprint(gui, W, H, 2.3, 3.6, 0.85, 8, true)
+		splatter(gui, W, H, 3.6, 2.6, 0.7)
+		-- The far wall is the one across from the plumbing wall (z = 60).
+		local farZ = if zA == 60 then zB - d - t - 0.02 else zA + d + t + 0.02
+		local side = if zA == 60 then "N" else "S"
+		local gui2, W2, H2 = bloodSheet(room, -80, 0.5, farZ - 0.01, -66, 7, farZ + 0.01, side)
+		handprint(gui2, W2, H2, 3.5, 3.9, 0.95, 20, false)
+		splatter(gui2, W2, H2, 9, 1.4, 0.9)
+	end
+
 	-- Restrooms -----------------------------------------------------------------------------
-	-- `dir` is +1 when the room extends south of the shared plumbing wall (Z = 60), -1 north.
-	local function restroom(zoneId, dir, stallStart)
+	-- Both alike: four stalls along the back (west) wall, each with a toilet, a roll of
+	-- toilet paper on its holder and a small bin; the sinks under a mirror on the plumbing
+	-- wall (z = 60) with the hand dryer, towels and a towel bin to their right. The men's
+	-- room has a row of urinals along the far wall, each with a privacy panel; the women's
+	-- a baby changing table there. `dir` is +1 when the room extends south of the plumbing
+	-- wall, -1 north. Fittings are dressed with sculpted meshes by RestroomService.
+	local function restroom(zoneId, dir, men, doorFrom, doorTo)
 		local room = k:folder(root, zoneId)
 		local wall = 60 + dir * 0.5
+		local far = 60 + dir * 19.5
 
 		-- Sinks and mirror on the plumbing wall.
-		k:span(room, "SinkCounter", -90, 2.4, wall, -72, 3, wall + dir * 2.5, P.offWhite)
+		k:span(room, "SinkCounter", -90, 2.4, wall, -72, 3, wall + dir * 2.5, COUNTER)
 		k:span(
 			room,
 			"CounterFront",
@@ -643,38 +912,136 @@ return function(k, root)
 			-72,
 			2.4,
 			wall + dir * 2.5,
-			Kit.decor(P.offWhite)
+			Kit.decor(COUNTER)
 		)
 		for index = 0, 2 do
 			local x = -88 + index * 6
-			k:span(room, "Basin", x, 3, wall + dir * 0.5, x + 3, 3.05, wall + dir * 2, P.dGrey)
+			local basin = k:span(room, "Basin", x, 3, wall + dir * 0.5, x + 3, 3.05, wall + dir * 2, P.dGrey)
+			fitting(basin, "Sink", x + 1.5, 3.05, wall + dir * 1.1, dir)
 			k:span(room, "Tap", x + 1.3, 3, wall + dir * 0.1, x + 1.7, 3.7, wall + dir * 0.5, P.dSteel)
 		end
-		local mirror = k:span(room, "Mirror", -90, 3.8, wall, -72, 7.4, wall + dir * 0.08, P.mirror)
-		k:mark(mirror, "Mirror", { Zone = zoneId })
+		local mirror = k:span(room, "Mirror", -90, 3.8, wall, -72, 7.4, wall + dir * 0.08, MIRROR)
+		k:mark(mirror, "Mirror", { Zone = zoneId, Normal = Kit.Vector3.new(0, 0, dir) })
+		-- Blood on the mirror: a handprint and a smear across it.
+		local mz = wall + dir * 0.09
+		local mgui, MW, MH = bloodSheet(
+			room,
+			-90,
+			3.8,
+			math.min(mz, mz + dir * 0.02),
+			-72,
+			7.4,
+			math.max(mz, mz + dir * 0.02),
+			if dir > 0 then "S" else "N"
+		)
+		handprint(mgui, MW, MH, 5.5, 2.2, 0.95, -8, false)
+		handprint(mgui, MW, MH, 12.6, 1.6, 0.9, 25, true)
+		splatter(mgui, MW, MH, 9, 2.9, 0.6)
+
+		-- Right of the sinks: the hand dryer, the paper towel dispenser and the towel bin.
+		local dryer = k:span(room, "HandDryer", -70, 3.6, wall, -68, 5.2, wall + dir * 0.8, P.dWhite)
+		fitting(dryer, "HandDryer", -69, 3.4, wall, dir)
+		local dispenser =
+			k:span(room, "PaperDispenser", -66.6, 3.8, wall, -65, 5.4, wall + dir * 0.6, P.dGrey)
+		fitting(dispenser, "TowelDispenser", -65.8, 3.6, wall, dir)
+		local towelBin = k:span(
+			room,
+			"TowelBinBase",
+			-67,
+			0,
+			wall + dir * 0.2,
+			-65,
+			2.6,
+			wall + dir * 1.4,
+			Kit.decor(P.dSteel)
+		)
+		fitting(towelBin, "TowelBin", -66, 0, wall + dir * 0.05, dir)
 
 		-- Stalls along the west wall.
 		for index = 0, 3 do
-			local z1 = stallStart + index * 4.5
+			local z1 = math.min(60, 60 + dir * 20) + 0.5 + index * 4.5 + (if dir > 0 then 1 else 0)
 			local z2 = z1 + 4.5
 			local middle = (z1 + z2) / 2
 			if index > 0 then
-				k:span(room, "StallDivider", -99.5, 0.5, z1 - 0.1, -93, 6.5, z1 + 0.1, P.grey)
+				k:span(room, "StallDivider", -99.5, 0.5, z1 - 0.1, -93, 6.5, z1 + 0.1, STALL)
 			end
-			k:span(room, "StallFront", -93.1, 0.5, z1, -92.9, 6.5, z1 + 1.7, P.grey)
-			k:span(room, "StallDoor", -95.6, 0.5, z2 - 0.4, -93.1, 6.5, z2 - 0.25, Kit.decor(P.grey))
-			k:span(room, "ToiletBowl", -98.6, 0, middle - 0.8, -96.6, 1.6, middle + 0.8, P.white)
+			k:span(room, "StallFront", -93.1, 0.5, z1, -92.9, 6.5, z1 + 1.7, STALL)
+			k:span(room, "StallDoor", -95.6, 0.5, z2 - 0.4, -93.1, 6.5, z2 - 0.25, Kit.decor(STALL))
+			local bowl = k:span(room, "ToiletBowl", -98.6, 0, middle - 0.8, -96.6, 1.6, middle + 0.8, P.white)
+			fitting(bowl, "Toilet", -99.4, 0, middle, 0)
 			k:span(room, "ToiletTank", -99.4, 1.6, middle - 0.9, -98.6, 3.3, middle + 0.9, Kit.decor(P.white))
-			if index == 3 then
-				k:marker(room, "Stall", -96, 2, middle, "HidingSpot", { Kind = "Stall", Zone = zoneId })
-			end
+			-- Toilet paper on the stall wall beside the toilet (a task can ask for refills).
+			local holder =
+				k:span(room, "PaperHolder", -97.3, 2.3, z1 + 0.1, -96.3, 2.9, z1 + 0.5, Kit.decor(P.dSteel))
+			fitting(holder, "PaperHolder", -96.8, 2.2, z1 + 0.12, 1)
+			k:mark(holder, "PaperHolder", { Zone = zoneId })
+			-- A small bin by the stall door.
+			local stallBin =
+				k:span(room, "StallBinBase", -95.4, 0, z2 - 1.3, -94.6, 1.1, z2 - 0.5, Kit.decor(P.dGrey))
+			fitting(stallBin, "StallBin", -95, 0, z2 - 0.9, -1)
 		end
-		-- Opposite wall: hand dryer and paper dispenser.
-		local far = 60 + dir * 19.5
-		k:span(room, "HandDryer", -80, 3.6, far, -78, 5.2, far - dir * 0.8, P.dWhite)
-		k:span(room, "PaperDispenser", -76, 3.8, far, -74.4, 5.4, far - dir * 0.6, P.dGrey)
-		bin(room, -70, 60 + dir * 17.5)
+
+		if men then
+			-- Urinals spaced along the far wall, each between privacy panels.
+			local facing = -dir
+			for index = 0, 4 do
+				local x = -88.5 + index * 3.6
+				local urinal = k:span(
+					room,
+					"Urinal",
+					x - 0.45,
+					1.6,
+					far - dir * 0.8,
+					x + 0.45,
+					3.6,
+					far,
+					Kit.decor(P.white)
+				)
+				fitting(urinal, "Urinal", x, 1.2, far, facing)
+				k:span(
+					room,
+					"UrinalLip",
+					x - 0.4,
+					1.6,
+					far - dir * 1.2,
+					x + 0.4,
+					1.9,
+					far - dir * 0.8,
+					Kit.decor(P.white)
+				)
+				k:span(
+					room,
+					"FlushPipe",
+					x - 0.05,
+					3.6,
+					far - dir * 0.15,
+					x + 0.05,
+					4.6,
+					far - dir * 0.05,
+					P.dSteel
+				)
+			end
+			for index = 0, 5 do
+				local x = -90.3 + index * 3.6
+				k:span(room, "UrinalPanel", x - 0.05, 1.2, far - dir * 1.9, x + 0.05, 5, far, STALL)
+			end
+		else
+			-- A fold-down baby changing table on the far wall.
+			k:span(room, "ChangingTable", -86, 2.6, far, -82.5, 3.1, far - dir * 1.8, Kit.decor(P.offWhite))
+			k:span(
+				room,
+				"ChangingTableBack",
+				-86,
+				2.6,
+				far,
+				-82.5,
+				4.4,
+				far - dir * 0.2,
+				Kit.decor(P.offWhite)
+			)
+		end
+		filthyRoom(room, math.min(60, 60 + dir * 20), math.max(60, 60 + dir * 20), doorFrom, doorTo)
 	end
-	restroom("BathroomA", 1, 61.5)
-	restroom("BathroomB", -1, 40.5)
+	restroom("BathroomA", 1, true, 67, 72)
+	restroom("BathroomB", -1, false, 47, 52)
 end

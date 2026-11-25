@@ -16,6 +16,8 @@ Kit.__index = Kit
 
 Kit.Instance, Kit.Vector3, Kit.CFrame, Kit.Color3, Kit.Enum = Instance, Vector3, CFrame, Color3, Enum
 Kit.UDim2, Kit.UDim, Kit.Font, Kit.Vector2 = UDim2, roblox.UDim, Font, roblox.Vector2
+Kit.NumberSequence, Kit.ColorSequence = roblox.NumberSequence, roblox.ColorSequence
+Kit.NumberSequenceKeypoint = roblox.NumberSequenceKeypoint
 
 -- Compass direction -> face of an unrotated part.
 local FACE = { N = "Front", S = "Back", W = "Left", E = "Right", U = "Top", D = "Bottom" }
@@ -343,6 +345,188 @@ function Kit:door(parent, name, wallAxis, at, from, to, swing, hingeAtFrom, styl
 		Open = not closed,
 		Zone = opts.zone or "",
 	})
+
+	-- A plaque on the door leaf itself, both faces (restrooms: the man / woman symbol and
+	-- the word under it). It moves with the door.
+	if opts.doorSign then
+		-- The pictogram, drawn from simple shapes so it fills the plaque: a man (blue) or
+		-- a woman in a dress (red). Sizes are fractions of the icon square.
+		local woman = opts.doorSign == "WOMEN"
+		local ink = if woman then Color3.fromRGB(178, 36, 60) else Color3.fromRGB(28, 70, 150)
+		local function shape(parent, x, y, w, h, round)
+			local frame = Instance.new("Frame")
+			frame.AnchorPoint = roblox.Vector2.new(0.5, 0)
+			frame.Position = UDim2.new(x, 0, y, 0)
+			frame.Size = UDim2.new(w, 0, h, 0)
+			frame.BackgroundColor3 = ink
+			frame.BorderSizePixel = 0
+			frame.Parent = parent
+			if round then
+				local corner = Instance.new("UICorner")
+				corner.CornerRadius = roblox.UDim.new(round, 0)
+				corner.Parent = frame
+			end
+			return frame
+		end
+		for _, face in { "Front", "Back" } do
+			local gui = Instance.new("SurfaceGui")
+			gui.Name = "DoorPlaque"
+			gui.Face = Enum.NormalId[face]
+			gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+			gui.PixelsPerStud = 40
+			gui.LightInfluence = 0
+			gui.Brightness = 0.6
+			gui.Parent = part
+			-- A small plate, most of it taken by the figure.
+			local plate = Instance.new("Frame")
+			plate.Name = "Plate"
+			plate.AnchorPoint = roblox.Vector2.new(0.5, 0.5)
+			plate.Position = UDim2.new(0.5, 0, 0.34, 0)
+			plate.Size = UDim2.new(0, 58, 0, 74)
+			plate.BackgroundColor3 = Color3.fromRGB(226, 222, 210)
+			plate.BorderSizePixel = 0
+			plate.Parent = gui
+			local corner = Instance.new("UICorner")
+			corner.CornerRadius = roblox.UDim.new(0, 5)
+			corner.Parent = plate
+			local icon = Instance.new("Frame")
+			icon.Name = "Icon"
+			icon.BackgroundTransparency = 1
+			icon.Position = UDim2.new(0.08, 0, 0.05, 0)
+			icon.Size = UDim2.new(0.84, 0, 0.76, 0)
+			icon.Parent = plate
+			shape(icon, 0.5, 0, 0.26, 0.2, 0.5) -- head
+			if woman then
+				-- Dress: widening steps down to the knees, then the legs.
+				shape(icon, 0.5, 0.22, 0.34, 0.12, 0.3)
+				shape(icon, 0.5, 0.32, 0.46, 0.14, 0.1)
+				shape(icon, 0.5, 0.44, 0.58, 0.16, 0.1)
+				shape(icon, 0.36, 0.42, 0.1, 0.28, 0.4).Rotation = 18 -- arms
+				shape(icon, 0.64, 0.42, 0.1, 0.28, 0.4).Rotation = -18
+				shape(icon, 0.41, 0.6, 0.11, 0.38, 0.3)
+				shape(icon, 0.59, 0.6, 0.11, 0.38, 0.3)
+			else
+				shape(icon, 0.5, 0.22, 0.4, 0.4, 0.25) -- torso
+				shape(icon, 0.24, 0.23, 0.1, 0.36, 0.4) -- arms
+				shape(icon, 0.76, 0.23, 0.1, 0.36, 0.4)
+				shape(icon, 0.41, 0.58, 0.14, 0.42, 0.3) -- legs
+				shape(icon, 0.59, 0.58, 0.14, 0.42, 0.3)
+			end
+			local word = Instance.new("TextLabel")
+			word.Name = "Word"
+			word.BackgroundTransparency = 1
+			word.Position = UDim2.new(0.05, 0, 0.82, 0)
+			word.Size = UDim2.new(0.9, 0, 0.15, 0)
+			word.Text = opts.doorSign
+			word.TextScaled = true
+			word.TextColor3 = Color3.fromRGB(28, 32, 40)
+			word.FontFace = Font.fromEnum(Enum.Font.GothamBold)
+			word.Parent = plate
+		end
+	end
+	-- A mat on the floor each side of the opening, and over it a sign naming the room, on
+	-- both faces of the wall (opts.label; walls are 1 stud thick).
+	local mid = (from + to) / 2
+	local matWidth = math.min(width - 0.6, 3.6)
+	local mat = Kit.style(52, 48, 44, "Fabric", { collide = false, shadow = false })
+	local plate = Kit.style(236, 232, 220, "SmoothPlastic", { collide = false, shadow = false })
+	local frame = Kit.style(40, 44, 52, "SmoothPlastic", { collide = false, shadow = false })
+	local signWidth = math.min(width, 4.2)
+	local top = height + 0.15
+	for _, side in { 1, -1 } do
+		local near = at + side * 0.5
+		local far = at + side * 2.3
+		if wallAxis == "x" then
+			self:span(
+				parent,
+				"DoorMat",
+				mid - matWidth / 2,
+				0.01,
+				math.min(near, far),
+				mid + matWidth / 2,
+				0.06,
+				math.max(near, far),
+				mat
+			)
+		else
+			self:span(
+				parent,
+				"DoorMat",
+				math.min(near, far),
+				0.01,
+				mid - matWidth / 2,
+				math.max(near, far),
+				0.06,
+				mid + matWidth / 2,
+				mat
+			)
+		end
+		if opts.label then
+			local face = at + side * 0.5
+			local board
+			if wallAxis == "x" then
+				self:span(
+					parent,
+					"RoomSignFrame",
+					mid - signWidth / 2 - 0.06,
+					top - 0.06,
+					math.min(face, face + side * 0.06),
+					mid + signWidth / 2 + 0.06,
+					top + 0.86,
+					math.max(face, face + side * 0.06),
+					frame
+				)
+				board = self:span(
+					parent,
+					"RoomSign",
+					mid - signWidth / 2,
+					top,
+					math.min(face, face + side * 0.1),
+					mid + signWidth / 2,
+					top + 0.8,
+					math.max(face, face + side * 0.1),
+					plate
+				)
+				self:text(board, if side > 0 then "S" else "N", opts.label, {
+					pps = 40,
+					color = Color3.fromRGB(28, 32, 40),
+					-- Lit from within, so they can be read in the dark.
+					glow = 0.6,
+					bg = Color3.fromRGB(226, 222, 210),
+				})
+			else
+				self:span(
+					parent,
+					"RoomSignFrame",
+					math.min(face, face + side * 0.06),
+					top - 0.06,
+					mid - signWidth / 2 - 0.06,
+					math.max(face, face + side * 0.06),
+					top + 0.86,
+					mid + signWidth / 2 + 0.06,
+					frame
+				)
+				board = self:span(
+					parent,
+					"RoomSign",
+					math.min(face, face + side * 0.1),
+					top,
+					mid - signWidth / 2,
+					math.max(face, face + side * 0.1),
+					top + 0.8,
+					mid + signWidth / 2,
+					plate
+				)
+				self:text(board, if side > 0 then "E" else "W", opts.label, {
+					pps = 40,
+					color = Color3.fromRGB(28, 32, 40),
+					-- Lit from within, so they can be read in the dark.
+					glow = 0.6,
+					bg = Color3.fromRGB(226, 222, 210),
+				})
+			end
+		end
+	end
 	return part
 end
 

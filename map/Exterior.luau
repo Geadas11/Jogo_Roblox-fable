@@ -121,7 +121,13 @@ return function(k, root)
 		{ Zone = "ParkingLot", Circuit = "Exterior", BaseBrightness = 1.2, Flicker = true }
 	)
 
-	-- Wall lights around the building.
+	-- Street lamps around the building: a steel post standing a couple of studs out from
+	-- the wall, an arm reaching out over the yard and a lamp head shining straight down,
+	-- with a faint cone of light falling from it (a Beam: it goes out with the lamp).
+	-- `x, z` is where the old wall light was, on the wall; `side` the way the wall faces.
+	local POST = Kit.style(58, 60, 64, "Metal")
+	local HEAD = Kit.style(44, 46, 50, "Metal", { collide = false })
+	local LAMP_COLOR = Color3.fromRGB(240, 226, 196)
 	local function wallLight(parent, name, x, y, z, side, zone, flicker, brightness)
 		local dx, dz = 0, 0
 		if side == "S" then
@@ -133,36 +139,84 @@ return function(k, root)
 		else
 			dx = -1
 		end
-		local wide = if dx == 0 then 1.2 else 0.3
-		local deep = if dx == 0 then 0.3 else 1.2
 		local power = brightness or 0.9
+		local unit = k:folder(parent, name .. "Post")
+		local height = y + 1
+		-- The post, two studs out from the wall.
+		local px, pz = x + dx * 2.2, z + dz * 2.2
+		k:cyl(unit, "Post", px, GROUND, pz, 0.32, height - GROUND, POST)
+		k:cyl(unit, "PostBase", px, GROUND, pz, 0.6, 0.4, POST)
+		-- The arm, out over the yard, and the head at its end.
+		local reach = 3
+		local hx, hz = px + dx * reach, pz + dz * reach
+		k:span(
+			unit,
+			"Arm",
+			math.min(px, hx) - 0.1,
+			height - 0.25,
+			math.min(pz, hz) - 0.1,
+			math.max(px, hx) + 0.1,
+			height - 0.05,
+			math.max(pz, hz) + 0.1,
+			HEAD
+		)
+		k:span(unit, "Head", hx - 0.7, height - 0.55, hz - 0.7, hx + 0.7, height - 0.05, hz + 0.7, HEAD)
+		-- The glowing lens underneath: the fixture the lighting system turns on and off.
 		local lamp = k:span(
 			parent,
 			name,
-			x - wide + dx * 0.3,
-			y,
-			z - deep + dz * 0.3,
-			x + wide + dx * 0.3,
-			y + 0.8,
-			z + deep + dz * 0.3,
+			hx - 0.55,
+			height - 0.65,
+			hz - 0.55,
+			hx + 0.55,
+			height - 0.55,
+			hz + 0.55,
 			P.neon(240, 232, 214)
 		)
-		k:light(lamp, "SurfaceLight", {
-			brightness = power,
-			range = if brightness then 30 else 24,
-			angle = 140,
-			color = Color3.fromRGB(240, 232, 214),
-			side = side,
+		k:light(lamp, "SpotLight", {
+			brightness = power * 1.6,
+			range = height + 14,
+			angle = 95,
+			color = LAMP_COLOR,
+			side = "D",
 		})
+		-- The cone of light down to the ground.
+		local top = Kit.Instance.new("Attachment")
+		top.Name = "ConeTop"
+		-- (CFrame, not Position: only CFrame is saved in the built place.)
+		top.CFrame = Kit.CFrame.new(0, -0.05, 0)
+		top.Parent = lamp
+		local bottom = Kit.Instance.new("Attachment")
+		bottom.Name = "ConeBottom"
+		bottom.CFrame = Kit.CFrame.new(0, -(height - 0.6 - GROUND), 0)
+		bottom.Parent = lamp
+		local cone = Kit.Instance.new("Beam")
+		cone.Name = "Cone"
+		cone.Attachment0 = top
+		cone.Attachment1 = bottom
+		cone.Width0 = 1
+		cone.Width1 = (height - GROUND) * 1.1
+		cone.FaceCamera = true
+		cone.LightEmission = 1
+		cone.LightInfluence = 0
+		cone.Color = Kit.ColorSequence.new(LAMP_COLOR)
+		cone.Transparency = Kit.NumberSequence.new({
+			Kit.NumberSequenceKeypoint.new(0, 0.68),
+			Kit.NumberSequenceKeypoint.new(0.6, 0.88),
+			Kit.NumberSequenceKeypoint.new(1, 1),
+		})
+		cone.Segments = 1
+		cone.Parent = lamp
 		k:mark(
 			lamp,
 			"LightFixture",
-			{ Zone = zone, Circuit = "Exterior", BaseBrightness = power, Flicker = flicker == true }
+			{ Zone = zone, Circuit = "Exterior", BaseBrightness = power * 1.6, Flicker = flicker == true }
 		)
 	end
 	wallLight(lot, "FrontLightWest", -80, 12, 80.5, "S", "ParkingLot")
 	wallLight(lot, "FrontLightEast", 80, 12, 80.5, "S", "ParkingLot")
-	wallLight(back, "BackDoorLight", -7.5, 9, -80.5, "N", "BackLot")
+	-- (Beside the back door, not in front of it: the post would block the way out.)
+	wallLight(back, "BackDoorLight", -14, 9, -80.5, "N", "BackLot")
 	wallLight(back, "DockLight", -56, 13.5, -80.5, "N", "BackLot", true)
 	-- Over the dumpsters: without it the trash run ends in pitch darkness (brighter than
 	-- the others: it has to reach into the bins, 10-16 studs out).
@@ -186,10 +240,11 @@ return function(k, root)
 		k:span(back, "DockBumper", x, 1, -81.3, x + 0.6, 4, -80.5, P.dRubber)
 	end
 
+	-- Up against the back wall, their fronts to the yard (DumpsterService dresses them).
 	for index, x in { 18, 34 } do
-		local dumpster = k:span(back, "Dumpster" .. index, x, GROUND, -97, x + 12, 5, -90, P.green)
+		local dumpster = k:span(back, "Dumpster" .. index, x, GROUND, -88.5, x + 12, 5, -81.5, P.green)
 		k:mark(dumpster, "Dumpster", { Zone = "BackLot" })
-		k:span(dumpster, "Lid", x - 0.2, 5, -97.2, x + 12.2, 5.4, -89.8, P.dBlack)
+		k:span(dumpster, "Lid", x - 0.2, 5, -88.7, x + 12.2, 5.4, -81.3, P.dBlack)
 	end
 	for layer = 0, 5 do
 		k:span(

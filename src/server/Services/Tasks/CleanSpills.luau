@@ -12,6 +12,7 @@ local Tags = require(Shared.Config.Tags)
 local Services = script.Parent.Parent
 local CarryService = require(Services.CarryService)
 local InteractionService = require(Services.InteractionService)
+local WetFloorSign = require(Services.Parent.Props.WetFloorSign)
 
 local CleanSpills = {}
 
@@ -43,7 +44,7 @@ function CleanSpills.Begin(task: any, count: number, context: any): number
 		end
 	end
 
-	local state = { Spills = {} }
+	local state = { Spills = {}, Signs = {} }
 	task.State = state
 
 	local zones = {}
@@ -55,6 +56,19 @@ function CleanSpills.Begin(task: any, count: number, context: any): number
 			createSpill(Vector3.new(point.Position.X, floor + 0.05, point.Position.Z), context.Rng:Int(5, 7))
 		state.Spills[spill] = point
 		zones[tostring(point:GetAttribute("Zone"))] = true
+		-- A "wet floor" sign stood in the puddle, a little off its middle (always on the
+		-- open floor the puddle covers, never into a shelf or a wall).
+		local angle = context.Rng:Next() * math.pi * 2
+		local reach = spill.Size.Y / 2 * 0.55
+		local sign = WetFloorSign.Create(
+			Vector3.new(
+				point.Position.X + math.cos(angle) * reach,
+				floor,
+				point.Position.Z + math.sin(angle) * reach
+			),
+			context.Rng:Next() * math.pi * 2
+		)
+		state.Signs[spill] = sign
 
 		local prompt = InteractionService.AddPrompt(spill, {
 			action = "Clean",
@@ -71,6 +85,10 @@ function CleanSpills.Begin(task: any, count: number, context: any): number
 			end
 			state.Spills[spill] = nil
 			occupied[point] = nil
+			if state.Signs[spill] then
+				state.Signs[spill]:Destroy()
+				state.Signs[spill] = nil
+			end
 			-- Mopped up: the puddle shrinks away instead of vanishing.
 			spill.Name = "MoppedSpill"
 			local prompt = spill:FindFirstChildOfClass("ProximityPrompt")
@@ -116,6 +134,9 @@ function CleanSpills.Cleanup(task: any)
 	for spill, point in state.Spills do
 		occupied[point] = nil
 		spill:Destroy()
+	end
+	for _, sign in state.Signs do
+		sign:Destroy()
 	end
 	task.State = nil
 end

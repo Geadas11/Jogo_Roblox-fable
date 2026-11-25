@@ -206,8 +206,14 @@ test("restocking: empty shelves, boxes in storage, carried one at a time", funct
 	expect.equal(player:GetAttribute("Carrying"), "StockBox")
 	use(world, player, bays[1].Anchor)
 	expect.equal(bays[1]:GetAttribute("Stocked"), true)
-	-- The shelf fills up one level at a time.
-	task.wait(1)
+	-- The shelf fills up one level at a time (wait for it, up to 3 s: a busy machine is
+	-- slower).
+	for _ = 1, 30 do
+		if productsVisible(bays[1]) then
+			break
+		end
+		task.wait(0.1)
+	end
 	expect.truthy(productsVisible(bays[1]))
 	expect.equal(player:GetAttribute("Carrying"), "")
 	expect.equal(boxes[1].Parent, nil, "the box was used up")

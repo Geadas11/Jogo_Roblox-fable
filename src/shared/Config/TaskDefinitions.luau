@@ -71,6 +71,21 @@ local Types: { [string]: TaskType } = {
 			Detail = "Look for the amber warning lights.",
 		},
 	},
+	RefillToiletPaper = {
+		Module = "Inspect",
+		Title = "Refill the toilet paper",
+		RewardPerUnit = 15,
+		Min = 2,
+		Max = 4,
+		Weight = 2,
+		Params = {
+			Tag = "PaperHolder",
+			Action = "Refill",
+			Object = "Toilet paper",
+			Hold = 2,
+			Detail = "Some stalls in the restrooms are out of paper.",
+		},
+	},
 	CloseRegisters = {
 		Module = "Inspect",
 		Title = "Cash up the registers",

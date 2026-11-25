@@ -87,9 +87,10 @@ local function setLit(fixture: Fixture, lit: boolean)
 	end
 	fixture.Tube.Material = if lit then Enum.Material.Neon else Enum.Material.SmoothPlastic
 	fixture.Tube.Color = if lit then fixture.Color else OFF_COLOR
-	-- Lit signs (the checkout lane numbers) carry glowing text: it goes out too.
+	-- Lit signs (the checkout lane numbers) carry glowing text, street lamps a cone of
+	-- light: they go out too.
 	for _, child in fixture.Tube:GetChildren() do
-		if child:IsA("SurfaceGui") then
+		if child:IsA("SurfaceGui") or child:IsA("Beam") then
 			child.Enabled = lit
 		end
 	end

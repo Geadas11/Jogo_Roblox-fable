@@ -170,77 +170,10 @@ return function(k, root)
 			k:span(gondola, "EndSouth", cx - 1.9, 0.5, z2 - 0.2, cx + 1.9, GONDOLA_HEIGHT, z2, P.dShelf)
 			shelfFace(gondola, cx - 0.15, cx - 1.9, z1 + 0.2, z2 - 0.2, categories[index * 2], index)
 			shelfFace(gondola, cx + 0.15, cx + 1.9, z1 + 0.2, z2 - 0.2, categories[index * 2 + 1], index + 1)
-
-			-- Overstock: cardboard cases stored on top of the unit, taped shut, some stacked.
-			local cursor = z1 + k:range(0.5, 3)
-			while cursor < z2 - 3 do
-				local length = k:range(1.6, 2.8)
-				local height = k:range(0.9, 1.6)
-				local depth = k:range(1.8, 3.2)
-				local shade = k:range(0.82, 1.08)
-				local cardboard = table.clone(P.dCardboard)
-				cardboard.color = Color3.fromRGB(
-					math.min(255, 164 * shade),
-					math.min(255, 126 * shade),
-					math.min(255, 84 * shade)
-				)
-				local layers = if k:chance(0.35) then 2 else 1
-				for layer = 0, layers - 1 do
-					local base = GONDOLA_HEIGHT + layer * height
-					local offset = k:range(-0.25, 0.25)
-					k:box(
-						gondola,
-						"Overstock",
-						cx + offset,
-						base + height / 2,
-						cursor + length / 2,
-						depth,
-						height,
-						length,
-						cardboard
-					)
-					-- Packing tape across the top.
-					k:box(
-						gondola,
-						"Overstock",
-						cx + offset,
-						base + height + 0.01,
-						cursor + length / 2,
-						depth + 0.02,
-						0.02,
-						0.25,
-						Kit.style(196, 170, 120, "SmoothPlastic", { collide = false, shadow = false })
-					)
-				end
-				cursor += length + k:range(0.4, 3.5)
-			end
 		end
 	end
 
-	-- "Caution: wet floor" A-frame signs, as left by the day staff.
-	for _, sign in { { -44, 47, 0.3 }, { 25, 68, 1.2 }, { 70, -12, -0.6 } } do
-		local x, z, yaw = sign[1], sign[2], sign[3]
-		local holder = k:model(front, "WetFloorSign")
-		local base = Kit.CFrame.new(x, 1.35, z) * Kit.CFrame.Angles(0, yaw, 0)
-		for _, side in { 1, -1 } do
-			local panel = k:oriented(
-				holder,
-				"Panel",
-				base * Kit.CFrame.new(0, 0, side * 0.25) * Kit.CFrame.Angles(side * 0.2, 0, 0),
-				1.2,
-				2.6,
-				0.06,
-				P.dYellow
-			)
-			printText(
-				panel,
-				if side > 0 then "Back" else "Front",
-				"⚠\nCAUTION\nWET\nFLOOR",
-				Color3.fromRGB(30, 26, 20),
-				60
-			)
-		end
-	end
+	-- (The "Caution: wet floor" signs stand only by actual spills: see CleanSpills.)
 
 	-- Single-sided shelving along the west wall.
 	local westShelf = k:folder(shelving, "WestWallShelving")
@@ -518,7 +451,10 @@ return function(k, root)
 				end
 			end
 		end
-		local card = k:span(stack, "SaleCard", x - 1.6, 5.1, 43.2, x + 1.6, 6.9, 43.4, P.dYellow)
+		-- The card on a stick pushed down into the top cases (the top layer ends at 3.84).
+		k:span(stack, "SalePole", x - 0.05, 3.3, 43.04, x + 0.05, 5.6, 43.14, P.dDarkSteel)
+		k:span(stack, "SaleClip", x - 0.2, 5.3, 43.08, x + 0.2, 5.5, 43.22, P.dDarkSteel)
+		local card = k:span(stack, "SaleCard", x - 1.6, 4.4, 43.2, x + 1.6, 6.2, 43.4, P.dYellow)
 		k:text(card, "S", "SPECIAL\nOFFER", { color = Color3.fromRGB(150, 20, 20) })
 	end
 

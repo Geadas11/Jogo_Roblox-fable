@@ -143,6 +143,14 @@ local Definitions: { [string]: Definition } = {
 		rate = { burst = 3, perSecond = 2 },
 	},
 
+	-- The way to the player's next step (GuideService): a flat list of points
+	-- { x1, z1, x2, z2, ... } along the walkable route, or an empty list for none.
+	Guide = {
+		kind = "Event",
+		from = "Server",
+		args = {},
+	},
+
 	-- The shift is over. Carries the results table shown on the results screen.
 	ShiftEnded = {
 		kind = "Event",

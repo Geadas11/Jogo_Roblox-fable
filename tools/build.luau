@@ -28,7 +28,9 @@ local Layout = require("../map/Layout")
 local Map = require("../map/Map")
 local Grids = require("./grids")
 
-local OUTPUT = "releases/NightShiftSupermarket.rbxl"
+-- Where the built place goes. NSS_OUTPUT overrides it (e.g. to rebuild only the map and
+-- grids while the place file is open in Studio with work that is not in the source).
+local OUTPUT = process.env.NSS_OUTPUT or "releases/NightShiftSupermarket.rbxl"
 local PLAN = "docs/floor-plan.svg"
 
 -- A character is about 2 studs wide and 5 tall, and steps over small ledges.
@@ -318,7 +320,8 @@ for tag, minimum in
 		ShelfBay = 100,
 		FridgeUnit = 20,
 		CheckoutRegister = 4,
-		HidingSpot = 8,
+		-- (The restroom stalls stopped being hiding spots: lockers and the desk remain.)
+		HidingSpot = 7,
 		SpillPoint = 12,
 		Breaker = 5,
 		ElectricalPanel = 1,

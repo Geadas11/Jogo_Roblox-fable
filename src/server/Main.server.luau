@@ -29,6 +29,8 @@ local SERVICE_ORDER = {
 	"PowerManager",
 	"TaskManager",
 	"DumpsterService",
+	"GuideService",
+	"RestroomService",
 	"HidingService",
 	"SurvivalService",
 	"FlashlightService",

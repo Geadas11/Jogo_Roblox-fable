@@ -28,6 +28,8 @@ local CONTROLLER_ORDER = {
 	"LightingController",
 	"AudioController",
 	"EventController",
+	"GuideController",
+	"MirrorController",
 	"CinematicController",
 	"WakeUpController",
 	"MenuController",

@@ -209,7 +209,8 @@ test("every hiding spot can be entered and left", function()
 		expect.truthy(grid:IsWalkable(root(player).Position.X, root(player).Position.Z))
 		count += 1
 	end
-	expect.truthy(count >= 8)
+	-- (Lockers and the office desk; the restroom stalls are no longer hiding spots.)
+	expect.truthy(count >= 7)
 end)
 
 -- Being caught ----------------------------------------------------------------------------------

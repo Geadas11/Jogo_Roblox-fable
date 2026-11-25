@@ -2,7 +2,8 @@
 -- Makes every door on the map (tag: Door) open and close.
 --
 -- The map stores both poses of each leaf as attributes (ClosedCFrame, OpenCFrame) and
--- its current state (Open). A door marked Locked gets no prompt.
+-- its current state (Open). A door marked Locked gets no prompt. Every door starts the
+-- game closed.
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -151,6 +152,12 @@ local function register(instance: Instance)
 		return
 	end
 	local closed, open = door:GetAttribute("ClosedCFrame"), door:GetAttribute("OpenCFrame")
+	-- The map is built with its doors open (so the monster's walking grid sees the way
+	-- through); in the game they start shut. The monster opens them as it comes through.
+	if typeof(closed) == "CFrame" and door:GetAttribute("Open") == true then
+		door.CFrame = closed
+		door:SetAttribute("Open", false)
+	end
 	if typeof(closed) == "CFrame" and typeof(open) == "CFrame" then
 		local hinge = findHinge(door, closed, open)
 		if hinge then

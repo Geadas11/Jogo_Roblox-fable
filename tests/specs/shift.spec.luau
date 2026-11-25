@@ -62,25 +62,26 @@ test("every unlocked door gets a prompt; the locked emergency exit does not", fu
 	expect.truthy(withPrompt >= 12)
 end)
 
-test("a player next to a door can close it and open it again", function()
+test("doors start closed; a player next to one can open it and close it again", function()
 	local world = boot()
 	local player = join(world, "Tester", 1)
 	local door = findDoor(world, "StaffDoor")
 	local prompt = promptOf(door)
-	expect.equal(door:GetAttribute("Open"), true)
-	expect.equal(prompt.ActionText, "Close")
-
-	world.moveTo(player, door)
-	world.trigger(prompt, player)
 	expect.equal(door:GetAttribute("Open"), false)
 	expect.equal(door.CFrame, door:GetAttribute("ClosedCFrame"))
 	expect.equal(prompt.ActionText, "Open")
 
-	task.wait(0.3) -- interaction cooldown
 	world.moveTo(player, door)
 	world.trigger(prompt, player)
 	expect.equal(door:GetAttribute("Open"), true)
 	expect.equal(door.CFrame, door:GetAttribute("OpenCFrame"))
+	expect.equal(prompt.ActionText, "Close")
+
+	task.wait(0.3) -- interaction cooldown
+	world.moveTo(player, door)
+	world.trigger(prompt, player)
+	expect.equal(door:GetAttribute("Open"), false)
+	expect.equal(door.CFrame, door:GetAttribute("ClosedCFrame"))
 end)
 
 test("a door cannot be operated from across the map", function()
@@ -89,7 +90,7 @@ test("a door cannot be operated from across the map", function()
 	local door = findDoor(world, "FreezerDoor")
 	world.moveTo(player, -90, 3, -5) -- the employee room
 	world.trigger(promptOf(door), player)
-	expect.equal(door:GetAttribute("Open"), true)
+	expect.equal(door:GetAttribute("Open"), false)
 end)
 
 test("interactions are ignored for a dead player, a player without a character and a stranger", function()
@@ -101,19 +102,19 @@ test("interactions are ignored for a dead player, a player without a character a
 	world.moveTo(dead, door)
 	dead.Character.Humanoid.Health = 0
 	world.trigger(prompt, dead)
-	expect.equal(door:GetAttribute("Open"), true)
+	expect.equal(door:GetAttribute("Open"), false)
 
 	local noCharacter = world.addPlayer("NoCharacter", 4)
 	world.side("client", noCharacter).load(CLIENT_MAIN)
 	world.trigger(prompt, noCharacter)
-	expect.equal(door:GetAttribute("Open"), true)
+	expect.equal(door:GetAttribute("Open"), false)
 
 	-- Never sent ClientReady: not part of the session.
 	local stranger = world.addPlayer("Stranger", 5)
 	world.spawnCharacter(stranger, 2)
 	world.moveTo(stranger, door)
 	world.trigger(prompt, stranger)
-	expect.equal(door:GetAttribute("Open"), true)
+	expect.equal(door:GetAttribute("Open"), false)
 end)
 
 test("rapid repeated triggers only count once", function()
@@ -124,7 +125,7 @@ test("rapid repeated triggers only count once", function()
 	for _ = 1, 20 do
 		world.trigger(promptOf(door), player)
 	end
-	expect.equal(door:GetAttribute("Open"), false)
+	expect.equal(door:GetAttribute("Open"), true)
 end)
 
 -- Starting the shift --------------------------------------------------------------------
